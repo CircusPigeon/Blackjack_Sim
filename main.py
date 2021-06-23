@@ -1,17 +1,13 @@
-from deck import Deck
-from dealer import Dealer
-from guest import Guest
+from blackjack import Blackjack
+
+#To-dos:
+#Modify hand to be a 2D list for splits
+#Implement other play options and subsequent plays
 
 def main():
     print("Welcome to the blackjack sim!")
-    dealer = Dealer()
-    guest1 = Guest() #perfect basic strategy player
-    guest2 = Guest() #random strategy player
-    deck = Deck(6)
-    deck.printDeck()
-    deck.fillDeck()
-    deck.printDeck()
-    deck.shuffle()
-    deck.printDeck()
+    game = Blackjack()
+    for i in range(10000):
+        game.run()
 
 main()
