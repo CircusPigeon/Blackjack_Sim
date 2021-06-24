@@ -18,6 +18,7 @@ class Deck:
     def pullTopCard(self):
         card = self.cards.pop(0)
         if (len(self.cards) == 0):
+            print("  *sOut of cards, reshuffling")
             self.cards = [0] * self.numCards
             self.fillDeck()
             self.shuffle()

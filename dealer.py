@@ -7,7 +7,9 @@ class Dealer (Player):
         self.money = 1000000
 
     def getShowcard(self):
-        return self.hand[1]
+        return self.hand[0][1]
 
-    def getPlay(self):
+    def getPlay(self, i):
+        if (self.getTotal(i) < 17 or (self.getTotal(i) == 17 and self.soft == True)):
+            return 1
         return 0
