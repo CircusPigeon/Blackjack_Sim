@@ -5,6 +5,7 @@ class Player:
         self.name = None
         self.money = None
         self.hand = [[]]
+        self.split = False
         self.soft = None
 
     def getName(self):
@@ -47,7 +48,15 @@ class Player:
         self.hand = [[]]
 
     def bust(self, i):
-        return self.getTotal(i) > 21
+        if (not self.soft and self.getTotal(i) > 21):
+            return True
+        if (self.soft and self.getTotal(i) - 10 > 21):
+            return True
+        return False
     
     def blackjack(self, i):
-        return self.getTotal(i) == 21
+        if (self.getTotal(i) == 21):
+            return True
+        if (self.soft and self.getTotal(i) - 10 == 21):
+            return True
+        return False
