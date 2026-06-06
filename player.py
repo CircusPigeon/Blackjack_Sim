@@ -1,12 +1,11 @@
-import random
-
-class Player: 
+class Player:
     def __init__(self):
         self.name = None
         self.money = None
-        self.hand = [[]]
-        self.split = False
-        self.soft = None
+        self.hand = [[]]          # a list of hands (more than one after a split)
+        self.handDone = [False]   # per-hand "no more actions" flag (split aces)
+        self.surrendered = [False]  # per-hand late-surrender flag
+        self.soft = None          # set as a side effect of getTotal()
 
     def getName(self):
         return self.name
@@ -18,45 +17,39 @@ class Player:
         self.money += amount
 
     def getTotal(self, i):
-        total = 0
+        total = sum(self.hand[i])
         self.soft = False
-        for card in self.hand[i]:
-            if (card == 1 and total + 11 <= 21):
-                total += 11
-                self.soft = True
-            else:
-                total += card
+        # Count one ace as 11 only if it fits; otherwise every ace stays 1.
+        # (Two aces as 11 would be 22, so at most one can ever be soft.)
+        if (1 in self.hand[i] and total + 10 <= 21):
+            total += 10
+            self.soft = True
         return total
 
     def addCard(self, i, card):
-        print("  " + self.name + " dealt a " + str(card))
         self.hand[i].append(card)
 
-    def printHand(self, i):
+    def isPair(self, i):
+        return len(self.hand[i]) == 2 and self.hand[i][0] == self.hand[i][1]
+
+    def handString(self, i):
         n = self.getTotal(i)
-        s = ""
-        if (i > 0 | len(self.hand) > 1):
-            s = " " + str(i + 1)
-        if (n == 21):
-            print("  " + self.name + " hand" + s + ": 21")
+        if (n == 21 and len(self.hand[i]) == 2):
+            desc = "blackjack"
         elif (self.soft):
-            print("  " + self.name + " hand" + s + ": soft " + str(n))
+            desc = "soft " + str(n)
         else:
-            print("  " + self.name + " hand" + s + ": " + str(n))
+            desc = str(n)
+        label = (" " + str(i + 1)) if len(self.hand) > 1 else ""
+        return "  " + self.name + " hand" + label + ": " + str(self.hand[i]) + " = " + desc
 
     def clearHand(self):
         self.hand = [[]]
+        self.handDone = [False]
+        self.surrendered = [False]
 
     def bust(self, i):
-        if (not self.soft and self.getTotal(i) > 21):
-            return True
-        if (self.soft and self.getTotal(i) - 10 > 21):
-            return True
-        return False
-    
+        return self.getTotal(i) > 21
+
     def blackjack(self, i):
-        if (self.getTotal(i) == 21):
-            return True
-        if (self.soft and self.getTotal(i) - 10 == 21):
-            return True
-        return False
+        return self.getTotal(i) == 21

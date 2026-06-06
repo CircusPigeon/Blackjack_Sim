@@ -1,0 +1,41 @@
+{
+  "config": {
+    "label": "baseline_H17_3to2_LS",
+    "seed": 42,
+    "rounds": 100000,
+    "numPacks": 6,
+    "penetration": 0.75,
+    "hitSoft17": true,
+    "blackjackPays": 1.5,
+    "surrender": true,
+    "maxHands": 4,
+    "strategies": [
+      "BASIC",
+      "COUNT",
+      "DEALER"
+    ],
+    "shuffle": "random",
+    "dummyPlayers": 0,
+    "bankroll": "flat"
+  },
+  "summary": [
+    {
+      "strategy": "BASIC",
+      "wagered": 1135660,
+      "profit": -2495,
+      "edge_pct": -0.2196960357853583
+    },
+    {
+      "strategy": "COUNT",
+      "wagered": 1621835,
+      "profit": 1085,
+      "edge_pct": 0.06689953047011564
+    },
+    {
+      "strategy": "DEALER",
+      "wagered": 1000000,
+      "profit": -60340,
+      "edge_pct": -6.034
+    }
+  ]
+}

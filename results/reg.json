@@ -1,0 +1,54 @@
+{
+  "config": {
+    "label": "reg",
+    "seed": 42,
+    "rounds": 25000,
+    "numPacks": 6,
+    "penetration": 0.75,
+    "hitSoft17": true,
+    "blackjackPays": 1.5,
+    "surrender": true,
+    "maxHands": 4,
+    "strategies": [
+      "BASIC",
+      "COUNT",
+      "DEALER"
+    ],
+    "shuffle": "random",
+    "shuffleRiffles": 3,
+    "shuffleStrips": 1,
+    "shuffleCut": true,
+    "dummyPlayers": 0,
+    "dummyStrategy": "BASIC",
+    "experiment": "game",
+    "heat_threshold": 3.0,
+    "heat_maxHands": 2000,
+    "bankroll_units": 2000.0,
+    "ruin_frac": 0.5,
+    "bankroll_horizon": 50000,
+    "heat_live": false,
+    "bankroll_live": false,
+    "kelly_fraction": 0.5,
+    "ceiling_samples": 60000
+  },
+  "summary": [
+    {
+      "strategy": "BASIC",
+      "wagered": 283330,
+      "profit": -1740,
+      "edge_pct": -0.6141248720573184
+    },
+    {
+      "strategy": "COUNT",
+      "wagered": 415650,
+      "profit": 2810,
+      "edge_pct": 0.676049560928666
+    },
+    {
+      "strategy": "DEALER",
+      "wagered": 250000,
+      "profit": -13785,
+      "edge_pct": -5.514
+    }
+  ]
+}
