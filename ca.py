@@ -10,8 +10,9 @@ the hand is negligibly inexact).
 We then sample decision states across all penetrations and measure how much
 composition-perfect play beats fixed total-dependent basic strategy. That gap is
 the theoretical PLAYING ceiling -- the headroom the EoR result said could only be
-in play, not betting. Splits are not modeled (both sides play pairs by total), so
-this is the hit/stand/double ceiling."""
+in play, not betting. Stand / hit / double / late-surrender are all modeled (the
+surrender option respects the rule set, h17 and deck count). Splits are not
+modeled (both sides play pairs by total), so this is the no-split playing ceiling."""
 
 import numpy as np
 from strategy import _hardPlay, _softPlay, _deviation
@@ -140,8 +141,22 @@ def node_value(total, soft, can_double, p, dout, upcard, policy, tc, memo):
     return val
 
 
+def basic_surrenders(total, soft, up, h17):
+    """Late-surrender basic-strategy decision, by total (mirrors strategy._surrender
+    for hard non-pair hands -- the CA plays every hand by total)."""
+    if (soft):
+        return False
+    if (total == 16):
+        return up in (9, 10, 1)
+    if (total == 15):
+        return up == 10 or (h17 and up == 1)
+    if (total == 17):
+        return h17 and up == 1
+    return False
+
+
 def measure_playing_ceiling(n_samples=40000, numPacks=6, h17=True, seed=0,
-                            rem_lo=0, rem_hi=None, cancel=None):
+                            rem_lo=0, rem_hi=None, cancel=None, surrender=False):
     rng = np.random.default_rng(seed)
     full = np.zeros(11)
     deck = []
@@ -160,6 +175,8 @@ def measure_playing_ceiling(n_samples=40000, numPacks=6, h17=True, seed=0,
     opt_over_basic = 0.0
     hilo_over_basic = 0.0
     opt_over_hilo = 0.0
+    oob_sq = 0.0
+    hob_sq = 0.0
     deviate = 0
     counted = 0
     for _i in range(n_samples):
@@ -182,17 +199,32 @@ def measure_playing_ceiling(n_samples=40000, numPacks=6, h17=True, seed=0,
         ev_o = node_value(total, soft, True, p, dout, up, "optimal", tc, {})
         ev_b = node_value(total, soft, True, p, dout, up, "basic", tc, {})
         ev_h = node_value(total, soft, True, p, dout, up, "hilo", tc, {})
-        opt_over_basic += (ev_o - ev_b)
-        hilo_over_basic += (ev_h - ev_b)
+        if (surrender):
+            # Late surrender (first decision only): optimal forfeits 0.5 whenever
+            # playing it out is worse; basic / Hi-Lo follow the fixed surrender chart.
+            ev_o = max(ev_o, -0.5)
+            if (basic_surrenders(total, soft, up, h17)):
+                ev_b = -0.5
+                ev_h = -0.5
+        d_ob = ev_o - ev_b
+        d_hb = ev_h - ev_b
+        opt_over_basic += d_ob
+        hilo_over_basic += d_hb
         opt_over_hilo += (ev_o - ev_h)
-        if (ev_o - ev_b > 1e-9):
+        oob_sq += d_ob * d_ob
+        hob_sq += d_hb * d_hb
+        if (d_ob > 1e-9):
             deviate += 1
         counted += 1
 
+    mob = opt_over_basic / counted
+    mhb = hilo_over_basic / counted
     return {
-        "opt_over_basic_pct": 100.0 * opt_over_basic / counted,
-        "hilo_over_basic_pct": 100.0 * hilo_over_basic / counted,
+        "opt_over_basic_pct": 100.0 * mob,
+        "hilo_over_basic_pct": 100.0 * mhb,
         "opt_over_hilo_pct": 100.0 * opt_over_hilo / counted,
+        "opt_over_basic_se": 100.0 * (max(oob_sq / counted - mob * mob, 0.0) / counted) ** 0.5,
+        "hilo_over_basic_se": 100.0 * (max(hob_sq / counted - mhb * mhb, 0.0) / counted) ** 0.5,
         "deviate_frac": deviate / counted,
         "n": counted,
     }

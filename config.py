@@ -32,6 +32,7 @@ class Config:
     spread_min: int = 1           # bet at/below the ramp start, in units (spread floor)
     spread_max: int = 20          # bet cap, in units (the top of the spread)
     ramp_start: float = 1.0       # true count at which the bet ramp begins
+    spread_slope: float = 1.0     # extra units bet per +1 true count above ramp_start
 
     # shuffle
     shuffle: str = "random"         # random | casino | csm

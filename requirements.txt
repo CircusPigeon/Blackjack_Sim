@@ -1,0 +1,12 @@
+# Runtime dependencies for the Blackjack Lab.
+#   pip install -r requirements.txt
+#
+# tkinter (the GUI toolkit) ships with CPython on Windows/macOS. On Debian/Ubuntu
+# Linux you may need it from the system package manager:  sudo apt install python3-tk
+#
+# pandas is optional -- only analysis.to_dataframe() uses it; the GUI, the CLI,
+# and make_figures.py do not. Uncomment if you want DataFrame export.
+
+numpy>=1.21
+matplotlib>=3.5
+# pandas>=1.3

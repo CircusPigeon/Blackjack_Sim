@@ -1,15 +1,34 @@
+import math
 import random
 import numpy as np
 from shuffle import RandomShuffle
 
-# Effects of removal (Griffin): how much removing one card of each rank shifts
-# the player's edge. The betting-optimal LINEAR count uses tags proportional to
-# these; Hi-Lo ({2-6:+1, 7-9:0, T/A:-1}) is just a coarse integer rounding. We
-# scale to roughly Hi-Lo magnitude so the two counts ramp on the same scale.
-EOR_SCALE = 2.2
+# Effects of removal: how much removing one card of each rank shifts the player's
+# edge. The betting-optimal LINEAR count uses tags proportional to these, and
+# Hi-Lo ({2-6:+1, 7-9:0, T/A:-1}) is a coarse integer rounding of them.
+#
+# These are derived from THIS engine, per rule set (precompute_eor.py): a flat-bet
+# regression of realized edge on the remaining-shoe composition. They are balanced
+# (frequency-weighted mean zero, so the running count is depth-neutral) and scaled
+# to Hi-Lo's per-card RMS, so the EoR true count shares the Hi-Lo true-count scale
+# and a single bet ramp treats both counts identically. Keyed by (hitSoft17,
+# surrender) -- the rules that most change the weights.
+EOR_WEIGHTS = {
+    (True, True):   {1: -1.296, 2: 0.816, 3: 0.901, 4: 1.322, 5: 1.380, 6: 1.163, 7: 0.567, 8: -0.303, 9: -0.434, 10: -1.029},
+    (True, False):  {1: -1.198, 2: 0.606, 3: 0.992, 4: 1.195, 5: 1.688, 6: 0.926, 7: 0.439, 8: 0.108, 9: -0.425, 10: -1.083},
+    (False, True):  {1: -1.372, 2: 0.890, 3: 1.002, 4: 1.470, 5: 1.353, 6: 0.957, 7: 0.327, 8: -0.080, 9: -0.549, 10: -1.000},
+    (False, False): {1: -1.560, 2: 0.635, 3: 1.294, 4: 0.905, 5: 1.145, 6: 1.239, 7: 0.566, 8: 0.073, 9: -0.057, 10: -1.060},
+}
+_EOR_DEFAULT = EOR_WEIGHTS[(True, True)]
+
+# Classic Griffin values (a generic game), kept only for reference/comparison.
 _EOR_BASE = {1: -0.61, 2: 0.38, 3: 0.44, 4: 0.55, 5: 0.69,
              6: 0.46, 7: 0.28, 8: 0.00, 9: -0.18, 10: -0.51}
-EOR = {c: _EOR_BASE[c] * EOR_SCALE for c in _EOR_BASE}
+
+
+def eor_tags(h17=True, surrender=True):
+    """Engine-derived optimal linear betting weights for the given rule set."""
+    return EOR_WEIGHTS.get((bool(h17), bool(surrender)), _EOR_DEFAULT)
 
 
 class Deck:
@@ -23,12 +42,13 @@ class Deck:
     does not bias a non-counter's hands; its weakness shows up only as sequential
     correlation across shoes, which is what a shuffle tracker exploits."""
 
-    def __init__(self, numPacks, penetration=0.75, shuffler=None, track=False):
+    def __init__(self, numPacks, penetration=0.75, shuffler=None, track=False, eor=None):
         self.numPacks = numPacks
         self.numCards = numPacks * 52
         self.penetration = penetration
         self.cutCard = int(self.numCards * penetration)
         self.shuffler = shuffler if shuffler is not None else RandomShuffle()
+        self.eor = eor if eor is not None else _EOR_DEFAULT   # EoR betting tags (rule-matched)
         self.cards = []
         self.discards = []
         self.runningCount = 0
@@ -96,14 +116,14 @@ class Deck:
         self.discards.append(card)
         if (counted):
             self.runningCount += self.countValue(card)
-            self.runningEoR += EOR[card]
+            self.runningEoR += self.eor[card]
         return card
 
     def applyCount(self, card):
         # Fold a previously-hidden card (the hole card) into the count once it is
         # turned face up.
         self.runningCount += self.countValue(card)
-        self.runningEoR += EOR[card]
+        self.runningEoR += self.eor[card]
 
     def needsReshuffle(self):
         # A CSM reshuffles every round; otherwise reshuffle at the cut card.

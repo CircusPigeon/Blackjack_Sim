@@ -88,6 +88,9 @@ DEFS = {
                    "but draw heat faster -- raise this and re-run the heat experiment to see the curve shift."),
     "ramp_start": ("Counter betting. The true count at which you start raising your bet. Below it you flat-bet "
                    "the minimum; at and above it the bet ramps up."),
+    "spread_slope": ("Counter betting. Extra units added to your bet per +1 true count above the ramp start -- "
+                     "the steepness of the spread. 1 = gentle; 2-3 = aggressive (hits the max bet sooner, "
+                     "earns more per hand but swingier and easier to detect)."),
     "shuffle": ("How the shoe is shuffled:\n"
                 "- random: perfectly mixed every shoe (the ideal)\n"
                 "- casino: a realistic hand shuffle (riffles, a strip, a cut). Not fully mixed -> trackable.\n"
@@ -138,7 +141,7 @@ PLOT_BUILDERS = {
 def relevant_controls(exp, heat_live, bankroll_live, shuffle, strategies=()):
     base = {"label", "seed"}
     heat_knobs = {"heat_threshold", "heat_warmup", "heat_rate"}
-    spread_knobs = {"spread_min", "spread_max", "ramp_start"}
+    spread_knobs = {"spread_min", "spread_max", "ramp_start", "spread_slope"}
     has_counter = any(s in COUNTERS for s in strategies)
     if (exp == "game"):
         s = base | {"strategies", "shuffle", "decks", "penetration", "blackjackPays",
@@ -337,6 +340,7 @@ class App:
         self.spreadmin_var = tk.StringVar(value="1")
         self.spreadmax_var = tk.StringVar(value="20")
         self.rampstart_var = tk.StringVar(value="1.0")
+        self.spreadslope_var = tk.StringVar(value="1.0")
         self.strat_vars = {s: tk.BooleanVar(value=(s in ("BASIC", "COUNT", "DEALER")))
                            for s in STRATEGIES}
 
@@ -364,6 +368,7 @@ class App:
         row("  Min bet (units)", combo(self.spreadmin_var, ["1", "2", "5"]), "spread_min", "readonly")
         row("  Max bet (units)", combo(self.spreadmax_var, ["4", "6", "8", "12", "16", "20", "40"]), "spread_max", "readonly")
         row("  Ramp start (true count)", combo(self.rampstart_var, ["0.0", "0.5", "1.0", "1.5", "2.0", "3.0"]), "ramp_start", "readonly")
+        row("  Ramp slope (units / TC)", combo(self.spreadslope_var, ["1.0", "1.5", "2.0", "2.5", "3.0"]), "spread_slope", "readonly")
         row("Shuffle", combo(self.shuffle_var, ["random", "casino", "csm"]), "shuffle", "readonly")
         row("  Riffles (casino)", combo(self.riffles_var, ["1", "2", "3", "4", "5", "7"]), "shuffleRiffles", "readonly")
         row("  Strips (casino)", combo(self.strips_var, ["0", "1", "2"]), "shuffleStrips", "readonly")
@@ -473,6 +478,7 @@ class App:
             spread_min=int(self.spreadmin_var.get()),
             spread_max=int(self.spreadmax_var.get()),
             ramp_start=float(self.rampstart_var.get()),
+            spread_slope=float(self.spreadslope_var.get()),
             shuffle=self.shuffle_var.get(),
             shuffleRiffles=int(self.riffles_var.get()),
             shuffleStrips=int(self.strips_var.get()),

@@ -1,6 +1,6 @@
 import math
 import random
-from deck import Deck
+from deck import Deck, eor_tags
 from dealer import Dealer
 from guest import Guest
 from play import Play
@@ -48,7 +48,8 @@ class Blackjack:
 
         track = "TRACK" in self.config.strategies
         self.deck = Deck(self.config.numPacks, self.config.penetration,
-                         self.config.make_shuffler(), track=track)
+                         self.config.make_shuffler(), track=track,
+                         eor=eor_tags(self.rules["hitSoft17"], self.rules["surrender"]))
         self.numRound = 0
         self.numReshuffles = 0
         self.holeCounted = True
@@ -80,6 +81,7 @@ class Blackjack:
         guest.minUnits = self.config.spread_min
         guest.maxUnits = self.config.spread_max
         guest.rampStart = float(self.config.ramp_start)
+        guest.slope = float(self.config.spread_slope)
 
     def log(self, msg):
         if (self.verbose):

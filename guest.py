@@ -18,6 +18,7 @@ class Guest (Player):
         self.minUnits = 1
         self.maxUnits = 20
         self.rampStart = 1.0
+        self.slope = 1.0             # extra units per +1 true count above rampStart
         self.bet = unit
         self.bets = [unit]
         self.insuranceBet = 0
@@ -60,7 +61,7 @@ class Guest (Player):
         if (signal < self.rampStart):
             units = self.minUnits
         else:
-            units = int(round(signal - self.rampStart + 1))
+            units = int(round(self.minUnits + self.slope * (signal - self.rampStart)))
             units = max(self.minUnits, min(units, self.maxUnits))
         self.bet = self.unit * units
 

@@ -223,18 +223,25 @@ def _run_bankroll(config, outdir, save_plots=True):
 
 def _run_ceiling(config, outdir, save_plots=True, cancel=None):
     import ca
-    from deck import _EOR_BASE, EOR_SCALE
-    print("[ceiling] composition-exact playing ceiling, %d samples (h17=%s)"
-          % (config.ceiling_samples, config.hitSoft17))
-    print("\nEoR-optimal betting weights (Hi-Lo is a coarse rounding of these):")
+    from deck import eor_tags, _EOR_BASE
+    print("[ceiling] composition-exact playing ceiling, %d samples (%d decks, h17=%s)"
+          % (config.ceiling_samples, config.numPacks, config.hitSoft17))
+    print("\nEoR betting weights, scaled to Hi-Lo's RMS for comparison (Hi-Lo is a coarse"
+          " rounding; Griffin's generic single-deck values shown for reference):")
+    import math
+    w = eor_tags(config.hitSoft17, config.surrender)
+    grms = math.sqrt((4 * sum(_EOR_BASE[c] ** 2 for c in range(1, 10))
+                      + 16 * _EOR_BASE[10] ** 2) / 52.0)
+    gs = math.sqrt(40.0 / 52.0) / grms          # put Griffin on the same Hi-Lo RMS scale
     hilo = {1: -1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 0, 8: 0, 9: 0, 10: -1}
     label = {1: "A", 10: "T"}
-    A.print_table([(label.get(c, str(c)), "%+.2f" % _EOR_BASE[c],
-                    "%+.2f" % (_EOR_BASE[c] * EOR_SCALE), "%+d" % hilo[c]) for c in range(1, 11)],
-                  ["card", "EoR%", "EoR tag", "Hi-Lo"])
+    A.print_table([(label.get(c, str(c)), "%+.2f" % w[c], "%+.2f" % (_EOR_BASE[c] * gs),
+                    "%+d" % hilo[c]) for c in range(1, 11)],
+                  ["card", "this game", "Griffin", "Hi-Lo"])
 
-    r = ca.measure_playing_ceiling(n_samples=config.ceiling_samples,
-                                   h17=config.hitSoft17, seed=config.seed, cancel=cancel)
+    r = ca.measure_playing_ceiling(n_samples=config.ceiling_samples, numPacks=config.numPacks,
+                                   h17=config.hitSoft17, surrender=config.surrender,
+                                   seed=config.seed, cancel=cancel)
     print("\nPlay (flat bet, all penetrations):")
     A.print_table([("perfect over basic", _fmt(r["opt_over_basic_pct"])),
                    ("Hi-Lo dev over basic", _fmt(r["hilo_over_basic_pct"])),
@@ -243,11 +250,16 @@ def _run_ceiling(config, outdir, save_plots=True, cancel=None):
 
     print("\nPlay ceiling by penetration:")
     band_n = max(10000, config.ceiling_samples // 4)
+    n_cards = config.numPacks * 52
+    cut = int(n_cards * 0.75)
+    edges = [0.0, 0.17, 0.43, 0.73, 1.0]
     prows = []
-    for (lo, hi) in [(0, 40), (40, 100), (100, 170), (170, 234)]:
-        b = ca.measure_playing_ceiling(n_samples=band_n, h17=config.hitSoft17,
+    for i in range(4):
+        lo, hi = int(cut * edges[i]), int(cut * edges[i + 1])
+        b = ca.measure_playing_ceiling(n_samples=band_n, numPacks=config.numPacks,
+                                       h17=config.hitSoft17, surrender=config.surrender,
                                        seed=config.seed + 1, rem_lo=lo, rem_hi=hi, cancel=cancel)
         prows.append(("%d-%d" % (lo, hi), _fmt(b["opt_over_basic_pct"]),
-                      "%.1f" % ((312 - (lo + hi) / 2) / 52.0)))
+                      "%.1f" % ((n_cards - (lo + hi) / 2) / 52.0)))
     A.print_table(prows, ["cards dealt", "perfect-basic", "decks left"])
     return {"ceiling": r}
