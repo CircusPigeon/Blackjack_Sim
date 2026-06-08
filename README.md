@@ -218,16 +218,4 @@ using textbook thresholds rather than engine-derived ones (worth only
 ≈ 0.02–0.06%/hand, so low impact). ORACLE deliberately plays like COUNT (it
 isolates the *betting* count, not play). Risk sims resample i.i.d. hands (no
 within-shoe serial correlation).
-
-## Roadmap
-
-- **Splits in the CA ceiling** (currently no-split): the standard two-independent-
-  hands approximation, validated against the engine's split rules. Modest expected
-  gain — the bulk of composition edge is in hard hit/stand/double/surrender cells.
-- Engine-derived index-play thresholds for the active rule set (currently a textbook
-  subset; low impact, but symmetric with the engine-derived EoR betting weights).
-- A composition-exact **PERFECT** playing strategy as an in-engine player
-  (currently `ceiling`-only; ~ms/decision, so benchmark-scale rather than 1M-hand).
-- Website: precomputed figures (`make_figures.py`) + write-up; readers who want to
-  run their own experiments clone the repo and launch `gui.py`.
 ```
