@@ -241,4 +241,3 @@ using textbook thresholds rather than engine-derived ones (worth only
 ≈ 0.07%/hand at best, so low impact). ORACLE deliberately plays like COUNT (it
 isolates the *betting* count, not play). Risk sims resample i.i.d. hands (no
 within-shoe serial correlation).
-```
