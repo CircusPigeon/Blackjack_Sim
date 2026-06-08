@@ -2,8 +2,8 @@
   "bankroll": {
     "description": "Risk of ruin vs Kelly fraction",
     "numbers": {
-      "RoR_full_kelly": 0.459,
-      "RoR_half_kelly": 0.147
+      "RoR_full_kelly": 0.429,
+      "RoR_half_kelly": 0.151
     },
     "files": [
       "figures\\bankroll_risk.svg",
@@ -23,16 +23,16 @@
     "trials": 30,
     "rounds": 40000,
     "smoke": false,
-    "note": "spread applies to the counting figures"
+    "note": "spread applies to the counting figures; per-figure trials/rounds are in each entry (oracle_vs_count uses 300)"
   },
   "heat": {
     "description": "Detection trade-off + optimal ramp vs spread cap",
     "numbers": {
       "optimal_ramp": 4,
-      "total_at_opt": 2.32,
-      "optimal_ramp_cap_6": 2.5,
+      "total_at_opt": 1.66,
+      "optimal_ramp_cap_6": 4,
       "optimal_ramp_cap_12": 4,
-      "optimal_ramp_cap_20": 8
+      "optimal_ramp_cap_20": 2.5
     },
     "files": [
       "figures\\heat_curve.svg",
@@ -47,15 +47,15 @@
   "oracle_vs_count": {
     "description": "Hi-Lo sits at the linear betting ceiling",
     "numbers": {
-      "betting_corr_hilo": 0.0125,
-      "betting_corr_eor": 0.0129,
-      "note": "near-identical betting correlation -> the EoR-optimal weights add nothing over plain Hi-Lo (Hi-Lo is at the linear betting ceiling)"
+      "betting_corr_hilo": 0.959,
+      "betting_corr_eor": 1.0,
+      "note": "Hi-Lo's betting correlation is ~0.97 vs 1.0 for the EoR-optimal weights, and the two edge-by-count curves overlap: Hi-Lo is at the linear betting ceiling."
     },
     "files": [
       "figures\\oracle_vs_count.svg",
       "figures\\oracle_vs_count.png"
     ],
-    "trials": 30,
+    "trials": 300,
     "rounds": 40000,
     "smoke": false
   },
@@ -63,24 +63,24 @@
     "description": "Counter edge rises with penetration",
     "numbers": {
       "0.50": {
-        "mean": 0.0818,
-        "ci95": 0.2097
+        "mean": 0.0919,
+        "ci95": 0.2672
       },
       "0.65": {
-        "mean": 0.2575,
-        "ci95": 0.2899
+        "mean": 0.1464,
+        "ci95": 0.2252
       },
       "0.75": {
-        "mean": 0.2933,
-        "ci95": 0.2329
+        "mean": 0.0754,
+        "ci95": 0.2889
       },
       "0.85": {
-        "mean": 0.5779,
-        "ci95": 0.3319
+        "mean": 0.4476,
+        "ci95": 0.2762
       },
       "0.90": {
-        "mean": 0.7885,
-        "ci95": 0.2624
+        "mean": 1.0613,
+        "ci95": 0.2691
       }
     },
     "files": [
@@ -95,20 +95,20 @@
     "description": "6:5 / CSM / shallow pen neutralize counting",
     "numbers": {
       "baseline 6D 3:2 75%": {
-        "mean": 0.2933,
-        "ci95": 0.2329
+        "mean": 0.0754,
+        "ci95": 0.2889
       },
       "6:5 payout": {
-        "mean": -0.9908,
-        "ci95": 0.2319
+        "mean": -1.2215,
+        "ci95": 0.2836
       },
       "continuous shuffler": {
-        "mean": -0.4157,
-        "ci95": 0.1467
+        "mean": -0.5855,
+        "ci95": 0.1651
       },
       "shallow pen 50%": {
-        "mean": 0.0818,
-        "ci95": 0.2097
+        "mean": 0.0919,
+        "ci95": 0.2672
       }
     },
     "files": [
@@ -124,24 +124,24 @@
     "numbers": {
       "edge_by_players": {
         "0": {
-          "mean": 0.4159,
-          "ci95": 0.1986
+          "mean": 0.2888,
+          "ci95": 0.2161
         },
         "1": {
-          "mean": 0.588,
-          "ci95": 0.2374
+          "mean": 0.4517,
+          "ci95": 0.2049
         },
         "2": {
-          "mean": 0.4449,
-          "ci95": 0.2067
+          "mean": 0.5169,
+          "ci95": 0.2398
         },
         "4": {
-          "mean": 0.5123,
-          "ci95": 0.2048
+          "mean": 0.3062,
+          "ci95": 0.2422
         },
         "6": {
-          "mean": 0.5294,
-          "ci95": 0.2366
+          "mean": 0.5067,
+          "ci95": 0.197
         }
       },
       "hands_per_hour": {
@@ -164,20 +164,24 @@
     "description": "Tracking only beats a sloppy, uncut shoe",
     "numbers": {
       "random (control)": {
-        "mean": -0.0695,
-        "ci95": 0.2018
+        "mean": -0.0007,
+        "ci95": 0.1991
+      },
+      "CSM (continuous)": {
+        "mean": 0.1621,
+        "ci95": 0.192
       },
       "casino 3 riffle + cut": {
-        "mean": 0.7012,
-        "ci95": 0.247
+        "mean": 0.6467,
+        "ci95": 0.2659
       },
       "casino 3 riffle, no cut": {
-        "mean": 0.9949,
-        "ci95": 0.2836
+        "mean": 0.8024,
+        "ci95": 0.3058
       },
       "casino 2 riffle, no cut": {
-        "mean": 1.8366,
-        "ci95": 0.3066
+        "mean": 1.5153,
+        "ci95": 0.3317
       }
     },
     "files": [
@@ -193,28 +197,28 @@
     "numbers": {
       "by_pct_dealt": {
         "6": {
-          "perfect": 0.2736,
-          "hilo_dev": -0.0034
+          "perfect": 0.1117,
+          "hilo_dev": -0.0099
         },
         "19": {
-          "perfect": 0.2915,
-          "hilo_dev": 0.0029
+          "perfect": 0.1298,
+          "hilo_dev": -0.001
         },
         "31": {
-          "perfect": 0.3641,
-          "hilo_dev": 0.0118
+          "perfect": 0.1854,
+          "hilo_dev": 0.0111
         },
         "44": {
-          "perfect": 0.4236,
-          "hilo_dev": 0.0177
+          "perfect": 0.2279,
+          "hilo_dev": 0.0188
         },
         "56": {
-          "perfect": 0.566,
-          "hilo_dev": 0.0313
+          "perfect": 0.3531,
+          "hilo_dev": 0.0362
         },
         "69": {
-          "perfect": 0.7603,
-          "hilo_dev": 0.0587
+          "perfect": 0.5182,
+          "hilo_dev": 0.0696
         }
       }
     },
@@ -232,42 +236,42 @@
       "A": {
         "hilo": -1.14,
         "griffin": -1.3,
-        "engine": -1.3
+        "engine": -1.2
       },
       "2": {
         "hilo": 1.14,
         "griffin": 0.81,
-        "engine": 0.82
+        "engine": 0.61
       },
       "3": {
         "hilo": 1.14,
         "griffin": 0.94,
-        "engine": 0.9
+        "engine": 0.99
       },
       "4": {
         "hilo": 1.14,
         "griffin": 1.17,
-        "engine": 1.32
+        "engine": 1.2
       },
       "5": {
         "hilo": 1.14,
         "griffin": 1.47,
-        "engine": 1.38
+        "engine": 1.69
       },
       "6": {
         "hilo": 1.14,
         "griffin": 0.98,
-        "engine": 1.16
+        "engine": 0.93
       },
       "7": {
         "hilo": 0.0,
         "griffin": 0.6,
-        "engine": 0.57
+        "engine": 0.44
       },
       "8": {
         "hilo": 0.0,
         "griffin": 0.0,
-        "engine": -0.3
+        "engine": 0.11
       },
       "9": {
         "hilo": 0.0,
@@ -277,7 +281,7 @@
       "T": {
         "hilo": -1.14,
         "griffin": -1.09,
-        "engine": -1.03
+        "engine": -1.08
       }
     },
     "files": [
@@ -291,8 +295,8 @@
   "bankroll_paths": {
     "description": "Bankroll trajectories: half vs full Kelly",
     "numbers": {
-      "RoR_half": 0.131,
-      "RoR_full": 0.416
+      "RoR_half": 0.122,
+      "RoR_full": 0.398
     },
     "files": [
       "figures\\bankroll_paths.svg",

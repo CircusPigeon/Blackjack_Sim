@@ -156,7 +156,8 @@ def basic_surrenders(total, soft, up, h17):
 
 
 def measure_playing_ceiling(n_samples=40000, numPacks=6, h17=True, seed=0,
-                            rem_lo=0, rem_hi=None, cancel=None, surrender=False):
+                            rem_lo=0, rem_hi=None, cancel=None, surrender=False,
+                            bet_ramp=None):
     rng = np.random.default_rng(seed)
     full = np.zeros(11)
     deck = []
@@ -177,6 +178,8 @@ def measure_playing_ceiling(n_samples=40000, numPacks=6, h17=True, seed=0,
     opt_over_hilo = 0.0
     oob_sq = 0.0
     hob_sq = 0.0
+    bw_num = 0.0          # bet-weighted perfect-over-basic gain (combined player)
+    bw_den = 0.0
     deviate = 0
     counted = 0
     for _i in range(n_samples):
@@ -213,6 +216,10 @@ def measure_playing_ceiling(n_samples=40000, numPacks=6, h17=True, seed=0,
         opt_over_hilo += (ev_o - ev_h)
         oob_sq += d_ob * d_ob
         hob_sq += d_hb * d_hb
+        if (bet_ramp is not None):
+            b = bet_ramp(tc)
+            bw_num += b * d_ob
+            bw_den += b
         if (d_ob > 1e-9):
             deviate += 1
         counted += 1
@@ -221,6 +228,7 @@ def measure_playing_ceiling(n_samples=40000, numPacks=6, h17=True, seed=0,
     mhb = hilo_over_basic / counted
     return {
         "opt_over_basic_pct": 100.0 * mob,
+        "opt_over_basic_bw_pct": (100.0 * bw_num / bw_den) if (bw_den > 0.0) else None,
         "hilo_over_basic_pct": 100.0 * mhb,
         "opt_over_hilo_pct": 100.0 * opt_over_hilo / counted,
         "opt_over_basic_se": 100.0 * (max(oob_sq / counted - mob * mob, 0.0) / counted) ** 0.5,

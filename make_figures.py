@@ -150,6 +150,7 @@ def exp_shuffle_tracking(trials, rounds):
     """Shuffle tracking only beats a sloppy, uncut shoe; the cut neutralizes it."""
     conds = [
         ("random\n(control)", dict(shuffle="random"), "#999999"),
+        ("CSM\n(continuous)", dict(shuffle="csm"), "#7f8c8d"),
         ("casino\n3 riffle + cut", dict(shuffle="casino", shuffleRiffles=3, shuffleStrips=1, shuffleCut=True), "#27ae60"),
         ("casino\n3 riffle, no cut", dict(shuffle="casino", shuffleRiffles=3, shuffleStrips=1, shuffleCut=False), "#e67e22"),
         ("casino\n2 riffle, no cut", dict(shuffle="casino", shuffleRiffles=2, shuffleStrips=0, shuffleCut=False), "#c0392b"),
@@ -236,7 +237,7 @@ def exp_bankroll_paths(trials, rounds):
         ax.tick_params(labelsize=10)
         nums["RoR_" + title.split()[0]] = round(r["ror"], 3)
     axes[0].set_ylabel("bankroll (units, log scale)", fontsize=11)
-    fig.suptitle("Bankroll trajectories: half Kelly is survivable, full Kelly courts ruin",
+    fig.suptitle("Bankroll trajectories: half Kelly survives, full Kelly often goes broke",
                  fontsize=13)
     return [("bankroll_paths", fig)], nums
 
@@ -247,7 +248,7 @@ def exp_ceiling(trials, rounds):
     play) actually capture. Flat bet, by penetration -- the widening gap is edge
     that lives in perfect composition-dependent play, impractical for a human."""
     import ca
-    NP, h17, surr = 6, True, True
+    NP, h17, surr = 6, True, False
     n_cards = NP * 52
     cut = int(n_cards * 0.75)
     nb = 6
@@ -290,7 +291,6 @@ def exp_oracle_vs_count(trials, rounds):
     # per count, per bucket: [n, sum_rpu, sumsq_rpu, sum_result, sum_wagered]
     accH = {b: [0, 0.0, 0.0, 0.0, 0.0] for b in range(lo, hi + 1)}
     accE = {b: [0, 0.0, 0.0, 0.0, 0.0] for b in range(lo, hi + 1)}
-    S = dict.fromkeys(("n", "h", "e", "y", "hh", "ee", "yy", "hy", "ey"), 0.0)
 
     for t in range(trials):
         bj = Blackjack(Config(experiment="game", strategies=("BASIC",),
@@ -316,9 +316,6 @@ def exp_oracle_vs_count(trials, rounds):
         keep = wag > 0
         h, res, wag, e = h[keep], res[keep], wag[keep], e[keep]
         rpu = res / wag
-        S["n"] += len(rpu); S["y"] += rpu.sum(); S["yy"] += (rpu * rpu).sum()
-        S["h"] += h.sum(); S["hh"] += (h * h).sum(); S["hy"] += (h * rpu).sum()
-        S["e"] += e.sum(); S["ee"] += (e * e).sum(); S["ey"] += (e * rpu).sum()
         for arr, acc in ((h, accH), (e, accE)):
             bk = np.clip(np.floor(arr).astype(int), lo, hi)
             for b in range(lo, hi + 1):
@@ -329,13 +326,21 @@ def exp_oracle_vs_count(trials, rounds):
                     acc[b][0] += nb; acc[b][1] += r.sum(); acc[b][2] += (r * r).sum()
                     acc[b][3] += res[msk].sum(); acc[b][4] += wag[msk].sum()
 
-    def corr(sx, sxx, sxy):
-        n = S["n"]
-        cov = sxy - sx * S["y"] / n
-        vx = sxx - sx * sx / n
-        vy = S["yy"] - S["y"] * S["y"] / n
-        return cov / math.sqrt(vx * vy)
-    bcH, bcE = corr(S["h"], S["hh"], S["hy"]), corr(S["e"], S["ee"], S["ey"])
+    # Standard betting correlation (BC): how well a count's per-card tags line up
+    # with the true effect-of-removal weights, correlated across ranks and weighted
+    # by how many of each rank are in the deck. Hi-Lo lands near 0.97; the EoR count
+    # is the EoR weights, so its BC is 1.0 by construction.
+    from deck import eor_tags
+    freq = np.array([4.0] * 9 + [16.0])
+
+    def wcorr(a, b):
+        a, b, w = np.asarray(a, float), np.asarray(b, float), freq / freq.sum()
+        ma, mb = (w * a).sum(), (w * b).sum()
+        cov = (w * (a - ma) * (b - mb)).sum()
+        return cov / math.sqrt((w * (a - ma) ** 2).sum() * (w * (b - mb) ** 2).sum())
+    eor_vec = np.array([eor_tags(True, False)[c] for c in range(1, 11)], float)
+    bcH = wcorr([-1, 1, 1, 1, 1, 1, 0, 0, 0, -1], eor_vec)
+    bcE = 1.0
 
     xs = list(range(lo, hi + 1))
     def curve(acc):
@@ -355,15 +360,16 @@ def exp_oracle_vs_count(trials, rounds):
     ax = fig.add_subplot(111)
     ax.axhline(0, color="0.5", lw=0.8)
     ax.errorbar(xs, yH, yerr=eH, fmt="o-", color="#2980b9", capsize=3,
-                label="Hi-Lo count  (betting corr %.3f)" % bcH)
+                label="Hi-Lo count  (betting correlation %.2f)" % bcH)
     ax.errorbar(xs, yE, yerr=eE, fmt="s--", color="#8e44ad", capsize=3,
-                label="EoR-optimal count  (betting corr %.3f)" % bcE)
+                label="EoR-optimal count  (betting correlation %.2f)" % bcE)
     A._style(ax, "Two betting counts sort edge identically: Hi-Lo is at the linear ceiling",
-             "true count (bucket)", "flat-bet edge per hand (%)")
+             "true count (each point is the bin floor(count) = x)", "flat-bet edge per hand (%)")
     ax.legend(fontsize=11)
-    nums = {"betting_corr_hilo": round(bcH, 4), "betting_corr_eor": round(bcE, 4),
-            "note": "near-identical betting correlation -> the EoR-optimal weights add "
-                    "nothing over plain Hi-Lo (Hi-Lo is at the linear betting ceiling)"}
+    nums = {"betting_corr_hilo": round(bcH, 3), "betting_corr_eor": round(bcE, 3),
+            "note": "Hi-Lo's betting correlation is ~0.97 vs 1.0 for the EoR-optimal "
+                    "weights, and the two edge-by-count curves overlap: Hi-Lo is at "
+                    "the linear betting ceiling."}
     return [("oracle_vs_count", fig)], nums
 
 
@@ -382,7 +388,7 @@ def exp_linear_counts(trials, rounds):
     ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "T"]
     hilo = norm([-1, 1, 1, 1, 1, 1, 0, 0, 0, -1])
     griffin = norm([_EOR_BASE[c] for c in range(1, 11)])
-    w = eor_tags(True, True)
+    w = eor_tags(True, False)
     engine = norm([w[c] for c in range(1, 11)])
     fig = A._new_figure(figsize=(9.2, 5.0))
     ax = fig.add_subplot(111)
@@ -391,11 +397,11 @@ def exp_linear_counts(trials, rounds):
     ax.axhline(0, color="0.5", lw=0.8)
     ax.bar(x - bw, hilo, bw, label="Hi-Lo", color="#2980b9")
     ax.bar(x, griffin, bw, label="Griffin (textbook, generic game)", color="#95a5a6")
-    ax.bar(x + bw, engine, bw, label="EoR-optimal (our H17 + surrender game)", color="#8e44ad")
+    ax.bar(x + bw, engine, bw, label="EoR-optimal (our H17 game, no surrender)", color="#8e44ad")
     ax.set_xticks(x)
     ax.set_xticklabels(ranks)
     A._style(ax, "Linear betting counts: Hi-Lo is a coarse rounding of the optimal weights",
-             "card rank", "tag value (scaled to Hi-Lo RMS)")
+             "card rank", "tag value (rescaled to a common size)")
     ax.legend(fontsize=10)
     nums = {r: {"hilo": round(h, 2), "griffin": round(g, 2), "engine": round(e, 2)}
             for r, h, g, e in zip(ranks, hilo, griffin, engine)}

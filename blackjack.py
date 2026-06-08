@@ -97,6 +97,7 @@ class Blackjack:
             self.deck.reshuffle()
             self.numReshuffles += 1
             self.log("==== Reshuffling shoe (cut card reached) ====")
+        self.deck.beginRound()
         tc = self.deck.getTrueCount()
         self.log("Round " + str(self.numRound) + "  | running count "
                  + str(self.deck.getRunningCount()) + ", true count " + str(round(tc, 2)))

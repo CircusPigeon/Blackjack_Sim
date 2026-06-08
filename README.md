@@ -79,7 +79,8 @@ stand 16 vs 10 at TC ≥ 0, insure at TC ≥ +3).
 *can smarter bet-sizing weights beat Hi-Lo's?* The only difference is the count it
 bets on: an **effect-of-removal (EoR)** count whose per-rank tags are proportional
 to how much removing one card of each rank shifts the player's edge in *this* rule
-set (H17 + surrender). Those weights are derived from the engine by regressing
+set (H17, no surrender — the default game; the weights are keyed by ruleset). Those
+weights are derived from the engine by regressing
 realized flat-bet edge on the remaining-shoe composition (`precompute_eor.py`),
 then balanced and scaled to the Hi-Lo magnitude. ORACLE marks the betting ceiling
 among linear counts — and the finding is that Hi-Lo already reaches it.
@@ -109,10 +110,13 @@ total (**splits not modeled**), so it is the *no-split* playing ceiling.
 |---|---|
 | **H17 / S17** | dealer hits / stands on soft 17 (an ace as 11, e.g. A-6). H17 is ~0.2% worse for the player. `hitSoft17` |
 | **3:2 vs 6:5** | blackjack payout: 3:2 pays 1.5×; 6:5 pays 1.2× and costs the player ≈ 1.3%. `blackjackPays` |
-| **late surrender** | forfeit half the bet and fold after seeing your two cards and the dealer upcard (first decision only, after the dealer checks for blackjack). `surrender` |
+| **late surrender** | forfeit half the bet and fold after seeing your two cards and the dealer upcard (first decision only, after the dealer checks for blackjack). Off by default — most casinos don't offer it. `surrender` |
 | **penetration** | fraction of the shoe dealt before the cut card forces a reshuffle (0.75 = 75%); deeper helps a counter. `penetration` |
 | **decks** | number of 52-card packs in the shoe (Vegas: 6 or 8). `numPacks` |
 | **true count (TC)** | running count ÷ decks remaining — normalizes the count for shoe depth |
+| **effect of removal (EoR)** | how much removing one card of a given rank shifts the player's edge; the "true" per-card weights an optimal betting count targets (`precompute_eor.py`) |
+| **betting correlation (BC)** | how well a count's per-card tags track the EoR weights (1.0 = perfect). Hi-Lo ≈ 0.96; ORACLE = 1.0 by construction |
+| **playing efficiency (PE)** | how much of the composition-perfect playing gain a count captures via its index plays. Hi-Lo ≈ 0.63; level-2 counts (Hi-Opt II / Zen / Omega II) ≈ 0.74–0.78 |
 | **bet spread / ramp** | how a counter scales bets with TC: `spread_min`–`spread_max` units, climbing `spread_slope` units per +1 TC from `ramp_start` |
 | **casino shuffle** | a realistic hand shuffle — N GSR riffles + strips + a final cut (`shuffleRiffles/Strips/Cut`); not fully randomizing, hence trackable |
 | **CSM** | continuous shuffle machine — dealt cards return to the shoe each hand, so no count ever builds (`shuffle=csm`) |
@@ -137,6 +141,8 @@ bankroll.py    counter calibration + fractional-Kelly risk-of-ruin Monte Carlo
 heat.py        the detection / back-off game
 ca.py          combinatorial-analysis playing ceiling
 main.py        CLI
+precompute_eor.py  derive the EoR betting weights per ruleset (regress edge on composition)
+level23.py     level-2/3 counts: betting-correlation vs playing-efficiency, the betting ceiling, edge-by-deck crossover
 make_figures.py  regenerate the curated write-up figures (SVG/PNG) + manifest
 ```
 
@@ -204,10 +210,27 @@ play** stays outside the live engine (~ms/decision); it lives in `ceiling`.
   reduces it (the casino's main defense).
 - More players don't change per-hand EV (the "card-eater" myth) — they cut hands/hour.
 - Full Kelly ≈ 46% chance of losing half your roll; half-Kelly (~14%) is the sweet spot.
-- **Hi-Lo sits at the linear betting ceiling** — the EoR-optimal weights for our game
-  tie it. **But it's far below the playing ceiling:** composition-perfect play beats
-  basic by ≈ +0.27%/hand off the top, rising to ≈ +0.76% deep in the shoe, while
-  Hi-Lo's index plays capture almost none of that (≈ 0.02–0.06%).
+- **Hi-Lo sits at the betting ceiling** (betting correlation 0.96 vs 1.00 for the
+  EoR-optimal weights, and the two edge-by-count curves overlap). The ceiling is not
+  merely the best *linear* one: fitting a flexible nonlinear predictor of edge from
+  the exact remaining composition adds **no** out-of-sample power over the best
+  linear count, because the betting edge really is linear in composition.
+- **But Hi-Lo is far below the playing ceiling.** Composition-perfect play beats
+  basic by ≈ +0.11%/hand off the top, rising to ≈ +0.52% deep in the shoe (H17, no
+  surrender), while Hi-Lo's index plays capture almost none of that (≈ 0.07%/hand at
+  best). Betting is linear and a simple count nails it; playing is nonlinear and no
+  linear count comes close.
+- **Level-2/3 counts trade betting correlation for playing efficiency.** Hi-Opt II,
+  Zen, and Omega II have slightly lower betting correlation than Hi-Lo (≈ 0.91–0.96)
+  but markedly higher playing efficiency (≈ 0.74–0.78 vs Hi-Lo's 0.63). Zen is the
+  balanced all-rounder; the extra playing efficiency pays off most in single- and
+  double-deck games, where the composition swings are largest (`level23.py`).
+- **Best of both worlds: optimal betting + perfect play.** Combining the ORACLE bet
+  spread with composition-perfect play yields ≈ +3.2%/hand in single deck, falling to
+  ≈ +1.2% by eight decks (1–12 spread, 75% pen). The playing gain such a player captures
+  is ≈ 1.3× the *flat-bet* playing ceiling, because it bets biggest in exactly the skewed
+  shoes where perfect play deviates most. Betting is still ≈ 70–80% of the total edge in
+  every game (`level23.py: edge_crossover`).
 
 ## Caveats
 
@@ -215,7 +238,7 @@ The CA ceiling plays pairs by total (**no splits**) and uses the
 fixed-composition-within-a-hand approximation — it *does* respect H17/S17, late
 surrender, and deck count. The counter's Illustrious-18 deviation set is a subset
 using textbook thresholds rather than engine-derived ones (worth only
-≈ 0.02–0.06%/hand, so low impact). ORACLE deliberately plays like COUNT (it
+≈ 0.07%/hand at best, so low impact). ORACLE deliberately plays like COUNT (it
 isolates the *betting* count, not play). Risk sims resample i.i.d. hands (no
 within-shoe serial correlation).
 ```

@@ -80,7 +80,7 @@ DEFS = {
                    "- COUNT: Hi-Lo card counter (bets more when the deck is rich, plus play changes)\n"
                    "- DEALER: just mimics the dealer (hits to 17)\n"
                    "- TRACK: shuffle tracker (follows clumps of high cards through a weak shuffle)\n"
-                   "- ORACLE: bets using the mathematically optimal per-card weights"),
+                   "- ORACLE: bets using the mathematically optimal per-card weights (effect of removal)"),
     "spread_min": ("Counter betting (COUNT / TRACK / ORACLE, and the heat experiment). The bet placed at or "
                    "below the ramp start, in units (1 unit = the table minimum). The bottom of the spread."),
     "spread_max": ("Counter betting. The largest bet, in units -- the top of the spread (a 1-to-N spread). "
@@ -107,7 +107,8 @@ DEFS = {
     "hitSoft17": ("Whether the dealer draws on a 'soft 17' (an ace as 11, e.g. A-6). Hitting soft 17 "
                   "(H17) is slightly worse for the player than standing on it (S17)."),
     "surrender": ("Late surrender: give up half your bet and quit the hand after seeing your first two "
-                  "cards and the dealer's upcard (first decision only)."),
+                  "cards and the dealer's upcard (first decision only). Off by default, since most "
+                  "casinos don't offer it; the curated figures assume it is off."),
     "dummyPlayers": ("Extra bystanders who use up cards but aren't tracked. They do NOT change your "
                      "per-hand edge, but they slow the game down (fewer hands per hour)."),
     "rounds": "How many hands to deal in one session (or per trial in Trials mode).",
@@ -325,7 +326,7 @@ class App:
         self.pen_var = tk.StringVar(value="0.75")
         self.bjp_var = tk.StringVar(value="1.5")
         self.h17_var = tk.BooleanVar(value=True)
-        self.surr_var = tk.BooleanVar(value=True)
+        self.surr_var = tk.BooleanVar(value=False)
         self.dummies_var = tk.StringVar(value="0")
         self.rounds_var = tk.StringVar(value="100000")
         self.seed_var = tk.StringVar(value="42")

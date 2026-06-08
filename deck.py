@@ -51,6 +51,7 @@ class Deck:
         self.eor = eor if eor is not None else _EOR_DEFAULT   # EoR betting tags (rule-matched)
         self.cards = []
         self.discards = []
+        self.roundMark = 0           # discard-pile length when the current round began
         self.runningCount = 0
         self.runningEoR = 0.0
         self.tracking = track
@@ -109,9 +110,32 @@ class Deck:
             return -1
         return 0
 
+    def beginRound(self):
+        # Mark where this round's dealing starts in the discard pile, so an
+        # emergency reshuffle can tell completed-round cards (safe to return to
+        # the shoe) from cards still live in the current hand.
+        self.roundMark = len(self.discards)
+
+    def _emergencyReshuffle(self):
+        # The shoe ran dry mid-round (only happens in a single deck dealt deep,
+        # where a round can start with fewer cards than it needs). Return just
+        # the completed-round discards to the shoe and reshuffle; the current
+        # round's cards stay out of play. The running count then reflects only
+        # the cards still unseen out of the shoe (the live ones).
+        live = self.discards[self.roundMark:]
+        pile = self.cards + self.discards[:self.roundMark]
+        self.shuffler.shuffle(pile)
+        self.cards = pile
+        self.discards = live
+        self.roundMark = 0
+        self.runningCount = sum(self.countValue(c) for c in live)
+        self.runningEoR = float(sum(self.eor[c] for c in live))
+
     def pullTopCard(self, counted=True):
         # counted=False deals a card without updating the running count, used for
         # the dealer's hole card (a counter cannot see it yet).
+        if (not self.cards):
+            self._emergencyReshuffle()
         card = self.cards.pop()
         self.discards.append(card)
         if (counted):
