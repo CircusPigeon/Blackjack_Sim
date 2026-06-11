@@ -253,8 +253,7 @@ play** stays outside the live engine (~ms/decision); it lives in `ceiling`.
 
 ## Caveats
 
-The CA ceiling plays pairs by total (**no splits**) and uses the
-fixed-composition-within-a-hand approximation — it *does* respect H17/S17, late
+The CA ceiling plays pairs by total (**no splits**) and approximates based on the deck decomposition going into a hand. It respects H17/S17, late
 surrender, and deck count. The counter's Illustrious-18 deviation set uses textbook
 thresholds rather than engine-derived ones and omits the two split index plays;
 insurance is taken at TC ≥ +3 (worth only ≈ 0.08%/hand at best, so low impact).
@@ -264,3 +263,9 @@ tables. ORACLE deliberately plays like COUNT (it
 isolates the *betting* count, not play). Risk sims resample i.i.d. hands (no
 within-shoe serial correlation).
 ```
+The CA ceiling plays pairs by total (**no splits**) and approximates based on the deck 
+composition going into a hand. It respects H17/S17, late surrender, and deck count. 
+The counter's Illustrious-18 deviation set is a subset using textbook thresholds rather 
+than engine-derived ones (worth only ≈ 0.07%/hand at best, so low impact). ORACLE 
+deliberately plays like COUNT (it isolates the *betting* count, not play). Risk sims resample 
+i.i.d. hands (no within-shoe serial correlation).
