@@ -1,5 +1,5 @@
-"""Basic strategy (6-deck, double-after-split, late surrender) plus a subset of
-the Hi-Lo "Illustrious 18" count-based deviations.
+"""Basic strategy (6-deck, double-after-split, late surrender) plus the hard-total
+and doubling members of the Hi-Lo "Illustrious 18" count-based deviations.
 
 Upcards are 1-10, where 1 is an Ace and 10 covers T/J/Q/K. Functions take the
 acting player and a hand index and return a Play value (int). Whether the dealer
@@ -133,25 +133,41 @@ def _hardPlay(total, up, canDouble):
 
 
 def _deviation(total, up, tc, canDouble):
-    """Return a count-based override, or None to defer to basic strategy."""
+    """Return a count-based override, or None to defer to basic strategy.
+
+    The hard-total and doubling members of the Hi-Lo "Illustrious 18" index plays
+    (Schlesinger), each tagged with its Hi-Lo index. Insurance (+3) and the two
+    pair-split plays (10,10 v 5 / v 6) are not hard-total index plays this engine
+    applies here. 11 v A (+1) is included for completeness but is a no-op in this
+    H17 game, where basic already doubles 11 v A."""
+    # Stiff totals: stand as the deck turns rich, hit as it turns poor.
     if (total == 16 and up == 10):
-        return STAND if tc >= 0 else None
+        return STAND if tc >= 0 else None        # 16 v T   index  0
     if (total == 16 and up == 9):
-        return STAND if tc >= 5 else None
+        return STAND if tc >= 5 else None        # 16 v 9   index +5
     if (total == 15 and up == 10):
-        return STAND if tc >= 4 else None
+        return STAND if tc >= 4 else None        # 15 v T   index +4
     if (total == 13 and up == 2):
-        return HIT if tc <= -1 else None
+        return HIT if tc < -1 else None          # 13 v 2   index -1
+    if (total == 13 and up == 3):
+        return HIT if tc < -2 else None          # 13 v 3   index -2
     if (total == 12 and up == 2):
-        return STAND if tc >= 3 else None
+        return STAND if tc >= 3 else None        # 12 v 2   index +3
     if (total == 12 and up == 3):
-        return STAND if tc >= 2 else None
-    if (total == 12 and up in (4, 5, 6)):
-        return HIT if tc <= -1 else None
+        return STAND if tc >= 2 else None        # 12 v 3   index +2
+    if (total == 12 and up == 4):
+        return HIT if tc < 0 else None           # 12 v 4   index  0
+    if (total == 12 and up == 5):
+        return HIT if tc < -2 else None          # 12 v 5   index -2
+    if (total == 12 and up == 6):
+        return HIT if tc < -1 else None          # 12 v 6   index -1
+    # Strong totals: double when the deck is rich enough.
+    if (total == 11 and up == 1):
+        return DOUBLE if (tc >= 1 and canDouble) else None    # 11 v A  index +1
     if (total == 10 and up in (10, 1)):
-        return DOUBLE if (tc >= 4 and canDouble) else None
+        return DOUBLE if (tc >= 4 and canDouble) else None    # 10 v T/A index +4
     if (total == 9 and up == 2):
-        return DOUBLE if (tc >= 1 and canDouble) else None
+        return DOUBLE if (tc >= 1 and canDouble) else None    # 9 v 2   index +1
     if (total == 9 and up == 7):
-        return DOUBLE if (tc >= 3 and canDouble) else None
+        return DOUBLE if (tc >= 3 and canDouble) else None    # 9 v 7   index +3
     return None

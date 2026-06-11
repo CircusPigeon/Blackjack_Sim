@@ -14,7 +14,8 @@ DEFAULT_RULES = {
     "maxHands": 4,          # cap on hands after splitting
 }
 
-COUNTERS = ("COUNT", "TRACK", "ORACLE")   # advantage strategies heat/bankroll apply to
+COUNTERS = ("COUNT", "TRACK", "ORACLE", "HIOPT2", "ZEN", "OMEGA2")   # advantage strategies heat/bankroll apply to
+LEVEL2 = ("HIOPT2", "ZEN", "OMEGA2")      # level-2 counts: bet and play on their own count
 
 
 class Blackjack:
@@ -124,6 +125,8 @@ class Blackjack:
                 signal = self.deck.predictedTrueCount()
             elif (player.strategy == "ORACLE"):
                 signal = self.deck.getEorTrueCount()
+            elif (player.strategy in LEVEL2):
+                signal = self.deck.getSystemTrueCount(player.strategy)
             else:
                 signal = tc
             player.calculateBet(signal)
@@ -241,12 +244,20 @@ class Blackjack:
         player.updateMoney(amount)
         self.dealer.updateMoney(-amount)
 
+    def _playSignal(self, player):
+        # The true count a strategy keys its PLAY decisions (deviations,
+        # insurance) on: level-2 counters use their own count, everyone else
+        # (including the dealer, who has no strategy) the Hi-Lo count.
+        if (getattr(player, "strategy", None) in LEVEL2):
+            return self.deck.getSystemTrueCount(player.strategy)
+        return self.deck.getTrueCount()
+
     def offerInsurance(self, tc):
         for i in range(self.numPlaying):
             if (not self.act[i]):
                 continue
             player = self.players[i]
-            if (player.wantsInsurance(tc)):
+            if (player.wantsInsurance(self._playSignal(player))):
                 ins = player.getBet() // 2
                 player.insuranceBet = ins
                 player.totalWagered += ins
@@ -263,7 +274,7 @@ class Blackjack:
         while (True):
             if (player.handDone[i] or player.bust(i) or player.blackjack(i)):
                 break
-            tc = self.deck.getTrueCount()
+            tc = self._playSignal(player)
             canDouble = (len(player.hand[i]) == 2)
             canSplit = (player.isPair(i) and len(player.hand) < self.rules["maxHands"])
             canSurrender = (self.rules["surrender"] and len(player.hand) == 1

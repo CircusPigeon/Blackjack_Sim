@@ -61,6 +61,8 @@ Tables print to stdout; CSV/JSON records and PNG plots land in `results/`.
 - `BASIC`, `DEALER` (mimic), `RANDOM`, `STAND` — baselines
 - `COUNT` — Hi-Lo: bet spread + Illustrious-18 deviations
 - `ORACLE` — effect-of-removal (best *linear*) betting weights
+- `HIOPT2`, `ZEN`, `OMEGA2` — level-2 counts: finer tags trade a little betting
+  correlation for better playing decisions (bet *and* deviate on their own count)
 - `TRACK` — shuffle tracker: predicts high-card slugs from the pre-shuffle pile
 
 ## What the algorithms do
@@ -70,9 +72,10 @@ Tables print to stdout; CSV/JSON records and PNG plots land in `results/`.
 to get the **true count (TC)**, an estimate of how rich the unseen cards are. One
 number drives both (a) **bet sizing** — a linear ramp on TC (flat minimum below
 `ramp_start`, then `spread_slope` extra units per +1 TC, capped at `spread_max`)
-— and (b) **play** — basic strategy plus a subset of the Hi-Lo "Illustrious-18"
+— and (b) **play** — basic strategy plus the hard-total Hi-Lo "Illustrious-18"
 index deviations (override basic when the TC crosses a cell's threshold; e.g.
-stand 16 vs 10 at TC ≥ 0, insure at TC ≥ +3).
+stand 16 vs 10 at TC ≥ 0). Insurance and the two pair-split index plays aren't
+modeled here.
 
 **ORACLE — the best *linear* betting count for our exact game.** Plays
 *identically* to COUNT (same deviations) — deliberately, to isolate one question:
@@ -84,6 +87,16 @@ weights are derived from the engine by regressing
 realized flat-bet edge on the remaining-shoe composition (`precompute_eor.py`),
 then balanced and scaled to the Hi-Lo magnitude. ORACLE marks the betting ceiling
 among linear counts — and the finding is that Hi-Lo already reaches it.
+
+**HIOPT2 / ZEN / OMEGA2 — level-2 counting systems.** Finer per-card tags (to ±2)
+that read the *playing* value of the deck better than Hi-Lo at the cost of a
+little betting correlation (BC ≈ 0.91–0.96 vs Hi-Lo's 0.96; playing efficiency
+≈ 0.74–0.78 vs 0.63). Each bets **and** makes its index deviations on its *own*
+true count. The engine tracks every system's running count with tags rescaled to
+Hi-Lo's per-card RMS, so one bet ramp and the same deviation thresholds apply to
+all counts on a shared true-count scale (system-specific index tables are not
+modeled). The trade pays where composition swings hardest: in our paired runs
+they beat Hi-Lo by ≈ +0.3–0.4%/hand in single deck and tie it in a 6-deck shoe.
 
 **TRACK — shuffle tracker.** Exploits the *sequence* correlation a weak casino
 shuffle leaves behind (which counting ignores). It learns the shuffle by
@@ -141,9 +154,9 @@ bankroll.py    counter calibration + fractional-Kelly risk-of-ruin Monte Carlo
 heat.py        the detection / back-off game
 ca.py          combinatorial-analysis playing ceiling
 main.py        CLI
-precompute_eor.py  derive the EoR betting weights per ruleset (regress edge on composition)
-level23.py     level-2/3 counts: betting-correlation vs playing-efficiency, the betting ceiling, edge-by-deck crossover
+precompute_eor.py  derive the EoR betting weights per ruleset + the nonlinear betting-ceiling check
 make_figures.py  regenerate the curated write-up figures (SVG/PNG) + manifest
+                 (incl. counting_systems BC/PE scatter and the edge_crossover figure)
 ```
 
 ## Figures for the write-up
@@ -217,28 +230,37 @@ play** stays outside the live engine (~ms/decision); it lives in `ceiling`.
   linear count, because the betting edge really is linear in composition.
 - **But Hi-Lo is far below the playing ceiling.** Composition-perfect play beats
   basic by ≈ +0.11%/hand off the top, rising to ≈ +0.52% deep in the shoe (H17, no
-  surrender), while Hi-Lo's index plays capture almost none of that (≈ 0.07%/hand at
-  best). Betting is linear and a simple count nails it; playing is nonlinear and no
-  linear count comes close.
+  surrender), while the full Illustrious-18 index plays capture almost none of that
+  (≈ 0.08%/hand at best, ~1/7 of the perfect-play gain). Completing the I18 (13v3,
+  exact 12v4/5/6) barely moves it: at 6 decks the count rarely reaches the thresholds,
+  and a Hi-Lo deviation can only ever capture the count-*correlated* slice of the
+  composition-perfect playing edge. Betting is linear and a simple count nails it;
+  playing is nonlinear and no linear count comes close.
 - **Level-2/3 counts trade betting correlation for playing efficiency.** Hi-Opt II,
   Zen, and Omega II have slightly lower betting correlation than Hi-Lo (≈ 0.91–0.96)
   but markedly higher playing efficiency (≈ 0.74–0.78 vs Hi-Lo's 0.63). Zen is the
   balanced all-rounder; the extra playing efficiency pays off most in single- and
-  double-deck games, where the composition swings are largest (`level23.py`).
+  double-deck games, where the composition swings are largest. Engine-validated:
+  as playable strategies (`HIOPT2`/`ZEN`/`OMEGA2`), all three beat Hi-Lo by
+  ≈ +0.3–0.4%/hand in paired single-deck runs and tie it at 6 decks
+  (`make_figures.py --only counting_systems` for the BC/PE scatter).
 - **Best of both worlds: optimal betting + perfect play.** Combining the ORACLE bet
   spread with composition-perfect play yields ≈ +3.2%/hand in single deck, falling to
   ≈ +1.2% by eight decks (1–12 spread, 75% pen). The playing gain such a player captures
   is ≈ 1.3× the *flat-bet* playing ceiling, because it bets biggest in exactly the skewed
   shoes where perfect play deviates most. Betting is still ≈ 70–80% of the total edge in
-  every game (`level23.py: edge_crossover`).
+  every game (`make_figures.py --only edge_crossover`).
 
 ## Caveats
 
 The CA ceiling plays pairs by total (**no splits**) and uses the
 fixed-composition-within-a-hand approximation — it *does* respect H17/S17, late
-surrender, and deck count. The counter's Illustrious-18 deviation set is a subset
-using textbook thresholds rather than engine-derived ones (worth only
-≈ 0.07%/hand at best, so low impact). ORACLE deliberately plays like COUNT (it
+surrender, and deck count. The counter's Illustrious-18 deviation set uses textbook
+thresholds rather than engine-derived ones and omits the two split index plays;
+insurance is taken at TC ≥ +3 (worth only ≈ 0.08%/hand at best, so low impact).
+The level-2 counters (`HIOPT2`/`ZEN`/`OMEGA2`) reuse the Hi-Lo deviation cells and
+thresholds on their own RMS-rescaled count rather than system-specific index
+tables. ORACLE deliberately plays like COUNT (it
 isolates the *betting* count, not play). Risk sims resample i.i.d. hands (no
 within-shoe serial correlation).
 ```

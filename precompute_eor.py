@@ -65,6 +65,50 @@ def bc(removed, dk, y, tag):
     return np.corrcoef((removed * tag).sum(1) / dk, y)[0, 1]
 
 
+def betting_ceiling(rounds=1200000, h17=True, surr=False, seed=3):
+    """How much can a NONLINEAR betting count beat the best LINEAR one (ORACLE)?
+    Fit linear vs full-quadratic predictors of the realized flat-bet edge from the
+    remaining composition, and compare their out-of-sample correlation with the
+    edge. A tiny (or negative) nonlinear gain means ORACLE is essentially at the
+    betting ceiling -- the betting edge is nearly linear in composition. Single-hand
+    edge is mostly noise, so the correlations are small; the gap is the signal.
+
+    Run:  python -c "import precompute_eor; precompute_eor.betting_ceiling()" """
+    removed, dk, y = collect(h17, surr, rounds, seed)
+    excess = (removed - removed.sum(1, keepdims=True) * P0) / dk[:, None]   # (n, 10)
+    n = len(y)
+    m = n // 2
+
+    def fit_predict(Xtr, ytr, Xte, lam):
+        A = np.column_stack([np.ones(len(ytr)), Xtr])
+        reg = np.eye(A.shape[1]) * lam
+        reg[0, 0] = 0.0
+        beta = np.linalg.solve(A.T @ A + reg, A.T @ ytr)
+        return np.column_stack([np.ones(len(Xte)), Xte]) @ beta
+
+    def quad(X):
+        cols = [X]
+        for i in range(X.shape[1]):
+            cols.append(X[:, i:] * X[:, i:i + 1])      # square + cross terms with j >= i
+        return np.hstack(cols)
+
+    Xq = quad(excess)
+    tr, te = slice(0, m), slice(m, n)
+    pl = fit_predict(excess[tr], y[tr], excess[te], 1e-2)
+    pq = fit_predict(Xq[tr], y[tr], Xq[te], 1e-1)
+    hic = (removed * HILO).sum(1) / dk
+    cl = np.corrcoef(pl, y[te])[0, 1]
+    cq = np.corrcoef(pq, y[te])[0, 1]
+    ch = np.corrcoef(hic[te], y[te])[0, 1]
+    print("Out-of-sample correlation with realized flat-bet edge (n=%d):" % n)
+    print("  Hi-Lo count          %.4f" % ch)
+    print("  best LINEAR (ORACLE) %.4f" % cl)
+    print("  best NONLINEAR       %.4f" % cq)
+    print("  nonlinear vs linear  %+.1f%%  (headroom above the linear betting ceiling)"
+          % (100.0 * (cq - cl) / cl))
+    return {"hilo": ch, "linear": cl, "nonlinear": cq}
+
+
 def main():
     out = {}
     for h17 in (True, False):

@@ -3,6 +3,11 @@ from play import Play
 from strategy import basicPlay, countPlay
 import random
 
+# Strategies that ramp their bet on a count signal (everyone else flat-bets).
+BET_COUNTERS = ("COUNT", "TRACK", "ORACLE", "HIOPT2", "ZEN", "OMEGA2")
+# Strategies that play count-based deviations on their own true count.
+DEVIATORS = ("COUNT", "ORACLE", "HIOPT2", "ZEN", "OMEGA2")
+
 
 class Guest (Player):
     def __init__(self, num, strat, unit=10):
@@ -46,7 +51,7 @@ class Guest (Player):
         if (self.out):
             self.bet = 0
             return
-        if (self.bankrollMode and self.strategy in ("COUNT", "TRACK", "ORACLE")):
+        if (self.bankrollMode and self.strategy in BET_COUNTERS):
             # Fractional Kelly of the current bankroll: bet ~ advantage/variance.
             adv = self.edgePerTC * (signal - self.pivot)
             if (adv <= 0.0):
@@ -55,7 +60,7 @@ class Guest (Player):
                 b = self.kellyFrac * (adv / self.variance) * self.money
                 self.bet = max(self.minBet, min(b, self.maxBet, self.money))
             return
-        if (self.strategy not in ("COUNT", "TRACK", "ORACLE")):
+        if (self.strategy not in BET_COUNTERS):
             self.bet = self.unit
             return
         if (signal < self.rampStart):
@@ -69,7 +74,10 @@ class Guest (Player):
         return self.bet
 
     def wantsInsurance(self, trueCount):
-        return self.strategy == "COUNT" and trueCount >= 3
+        # Insure when the deck is ten-rich. The level-2 counts use the same +3
+        # threshold: their tags are Hi-Lo-RMS-scaled, so the scale is shared.
+        return (self.strategy in ("COUNT", "HIOPT2", "ZEN", "OMEGA2")
+                and trueCount >= 3)
 
     def getProfit(self):
         return self.money - self.startMoney
@@ -98,5 +106,10 @@ class Guest (Player):
         if (self.strategy == "ORACLE"):
             # EoR-optimal betting; same Hi-Lo deviations as COUNT so only the
             # betting count differs (isolates the betting-accuracy gain).
+            return countPlay(self, i, upcard, trueCount, canDouble, canSplit, canSurrender)
+        if (self.strategy in ("HIOPT2", "ZEN", "OMEGA2")):
+            # Level-2 counter: bets AND deviates on its own count. The engine
+            # passes this strategy's true count in trueCount (Hi-Lo-scaled tags,
+            # so the same index thresholds apply approximately).
             return countPlay(self, i, upcard, trueCount, canDouble, canSplit, canSurrender)
         return Play.STAND.value

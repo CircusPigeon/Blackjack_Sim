@@ -31,6 +31,37 @@ def eor_tags(h17=True, surrender=True):
     return EOR_WEIGHTS.get((bool(h17), bool(surrender)), _EOR_DEFAULT)
 
 
+# Level-2 counting systems, playable as the HIOPT2 / ZEN / OMEGA2 strategies.
+# Raw integer tags (rank 1 = ace, 10 = T/J/Q/K), all balanced (frequency-weighted
+# sum zero) so the true count is depth-neutral. They trade a little betting
+# correlation for a better read on the PLAYING value of the cards.
+COUNT_SYSTEMS = {
+    "HIOPT2": {1: 0,  2: 1, 3: 1, 4: 2, 5: 2, 6: 1, 7: 1, 8: 0, 9: 0,  10: -2},
+    "ZEN":    {1: -1, 2: 1, 3: 1, 4: 2, 5: 2, 6: 2, 7: 1, 8: 0, 9: 0,  10: -2},
+    "OMEGA2": {1: 0,  2: 1, 3: 1, 4: 2, 5: 2, 6: 2, 7: 1, 8: 0, 9: -1, 10: -2},
+}
+SYSTEM_LABELS = {"HIOPT2": "Hi-Opt II", "ZEN": "Zen", "OMEGA2": "Omega II"}
+
+_FREQ = {r: (16.0 if r == 10 else 4.0) for r in range(1, 11)}
+
+
+def _per_card_rms(tags):
+    tot = sum(_FREQ.values())
+    return math.sqrt(sum(_FREQ[r] / tot * tags[r] ** 2 for r in range(1, 11)))
+
+
+_HILO_TAGS = {1: -1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 0, 8: 0, 9: 0, 10: -1}
+
+# The engine runs each system with its tags rescaled to Hi-Lo's per-card RMS
+# (the same convention as the EoR weights), so every count lands on the shared
+# Hi-Lo true-count scale and one bet ramp / one set of deviation indices applies.
+SYSTEM_TAGS_SCALED = {
+    name: {r: tags[r] * _per_card_rms(_HILO_TAGS) / _per_card_rms(tags)
+           for r in range(1, 11)}
+    for name, tags in COUNT_SYSTEMS.items()
+}
+
+
 class Deck:
     """A multi-deck shoe dealt without replacement, with a cut card and a Hi-Lo
     running count.
@@ -54,6 +85,7 @@ class Deck:
         self.roundMark = 0           # discard-pile length when the current round began
         self.runningCount = 0
         self.runningEoR = 0.0
+        self.runningSys = {n: 0.0 for n in SYSTEM_TAGS_SCALED}
         self.tracking = track
         self.profile = None          # predicted Hi-Lo value per upcoming deal step
         self.T = None
@@ -76,6 +108,7 @@ class Deck:
         self.discards = []
         self.runningCount = 0
         self.runningEoR = 0.0
+        self.runningSys = {n: 0.0 for n in SYSTEM_TAGS_SCALED}
 
     def reshuffle(self):
         # Recombine unplayed remainder + discards (play order). A tracker predicts
@@ -89,6 +122,7 @@ class Deck:
         self.cards = pile
         self.runningCount = 0
         self.runningEoR = 0.0
+        self.runningSys = {n: 0.0 for n in SYSTEM_TAGS_SCALED}
 
     def predictedTrueCount(self, window=15):
         # Forward-looking estimate of the next `window` cards' richness. High
@@ -130,6 +164,8 @@ class Deck:
         self.roundMark = 0
         self.runningCount = sum(self.countValue(c) for c in live)
         self.runningEoR = float(sum(self.eor[c] for c in live))
+        self.runningSys = {n: float(sum(t[c] for c in live))
+                           for n, t in SYSTEM_TAGS_SCALED.items()}
 
     def pullTopCard(self, counted=True):
         # counted=False deals a card without updating the running count, used for
@@ -141,6 +177,8 @@ class Deck:
         if (counted):
             self.runningCount += self.countValue(card)
             self.runningEoR += self.eor[card]
+            for n, t in SYSTEM_TAGS_SCALED.items():
+                self.runningSys[n] += t[card]
         return card
 
     def applyCount(self, card):
@@ -148,6 +186,8 @@ class Deck:
         # turned face up.
         self.runningCount += self.countValue(card)
         self.runningEoR += self.eor[card]
+        for n, t in SYSTEM_TAGS_SCALED.items():
+            self.runningSys[n] += t[card]
 
     def needsReshuffle(self):
         # A CSM reshuffles every round; otherwise reshuffle at the cut card.
@@ -177,6 +217,14 @@ class Deck:
         if decks < 0.25:
             decks = 0.25
         return self.runningEoR / decks
+
+    def getSystemTrueCount(self, name):
+        # True count for a level-2 system (HIOPT2 / ZEN / OMEGA2). The tags are
+        # Hi-Lo-RMS-scaled, so this shares the Hi-Lo true-count scale.
+        decks = self.decksRemaining()
+        if decks < 0.25:
+            decks = 0.25
+        return self.runningSys[name] / decks
 
     def printDeck(self):
         print(self.cards)

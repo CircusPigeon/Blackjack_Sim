@@ -23,7 +23,7 @@
     "trials": 30,
     "rounds": 40000,
     "smoke": false,
-    "note": "spread applies to the counting figures; per-figure trials/rounds are in each entry (oracle_vs_count uses 300)"
+    "note": "spread applies to the counting figures"
   },
   "heat": {
     "description": "Detection trade-off + optimal ramp vs spread cap",
@@ -63,31 +63,31 @@
     "description": "Counter edge rises with penetration",
     "numbers": {
       "0.50": {
-        "mean": 0.0919,
-        "ci95": 0.2672
+        "mean": -0.045,
+        "ci95": 0.079
       },
       "0.65": {
-        "mean": 0.1464,
-        "ci95": 0.2252
+        "mean": 0.1848,
+        "ci95": 0.0798
       },
       "0.75": {
-        "mean": 0.0754,
-        "ci95": 0.2889
+        "mean": 0.3394,
+        "ci95": 0.0814
       },
       "0.85": {
-        "mean": 0.4476,
-        "ci95": 0.2762
+        "mean": 0.6965,
+        "ci95": 0.0872
       },
       "0.90": {
-        "mean": 1.0613,
-        "ci95": 0.2691
+        "mean": 0.8555,
+        "ci95": 0.0912
       }
     },
     "files": [
       "figures\\penetration_sweep.svg",
       "figures\\penetration_sweep.png"
     ],
-    "trials": 30,
+    "trials": 300,
     "rounds": 40000,
     "smoke": false
   },
@@ -198,27 +198,27 @@
       "by_pct_dealt": {
         "6": {
           "perfect": 0.1117,
-          "hilo_dev": -0.0099
+          "hilo_dev": -0.0098
         },
         "19": {
           "perfect": 0.1298,
-          "hilo_dev": -0.001
+          "hilo_dev": -0.0004
         },
         "31": {
           "perfect": 0.1854,
-          "hilo_dev": 0.0111
+          "hilo_dev": 0.0112
         },
         "44": {
           "perfect": 0.2279,
-          "hilo_dev": 0.0188
+          "hilo_dev": 0.0193
         },
         "56": {
           "perfect": 0.3531,
-          "hilo_dev": 0.0362
+          "hilo_dev": 0.0427
         },
         "69": {
           "perfect": 0.5182,
-          "hilo_dev": 0.0696
+          "hilo_dev": 0.0775
         }
       }
     },
@@ -301,6 +301,38 @@
     "files": [
       "figures\\bankroll_paths.svg",
       "figures\\bankroll_paths.png"
+    ],
+    "trials": 30,
+    "rounds": 40000,
+    "smoke": false
+  },
+  "counting_systems": {
+    "description": "Counting systems: BC vs PE trade-off",
+    "numbers": {
+      "Hi-Lo": {
+        "BC": 0.959,
+        "PE": 0.63
+      },
+      "Hi-Opt II": {
+        "BC": 0.912,
+        "PE": 0.768
+      },
+      "Zen": {
+        "BC": 0.957,
+        "PE": 0.736
+      },
+      "Omega II": {
+        "BC": 0.919,
+        "PE": 0.779
+      },
+      "ORACLE (EoR)": {
+        "BC": 1.0,
+        "PE": 0.664
+      }
+    },
+    "files": [
+      "figures\\level23_bc_pe.svg",
+      "figures\\level23_bc_pe.png"
     ],
     "trials": 30,
     "rounds": 40000,

@@ -37,8 +37,8 @@ import experiment
 
 OUTDIR = "results"
 FONT_PT = 10
-STRATEGIES = ["BASIC", "COUNT", "DEALER", "TRACK", "ORACLE"]
-COUNTERS = ("COUNT", "TRACK", "ORACLE")
+STRATEGIES = ["BASIC", "COUNT", "DEALER", "TRACK", "ORACLE", "HIOPT2", "ZEN", "OMEGA2"]
+COUNTERS = ("COUNT", "TRACK", "ORACLE", "HIOPT2", "ZEN", "OMEGA2")
 
 
 class Cancelled(Exception):
@@ -80,7 +80,10 @@ DEFS = {
                    "- COUNT: Hi-Lo card counter (bets more when the deck is rich, plus play changes)\n"
                    "- DEALER: just mimics the dealer (hits to 17)\n"
                    "- TRACK: shuffle tracker (follows clumps of high cards through a weak shuffle)\n"
-                   "- ORACLE: bets using the mathematically optimal per-card weights (effect of removal)"),
+                   "- ORACLE: bets using the mathematically optimal per-card weights (effect of removal)\n"
+                   "- HIOPT2 / ZEN / OMEGA2: level-2 counters -- finer per-card tags that read the\n"
+                   "  playing value of the deck better than Hi-Lo (slightly worse for betting).\n"
+                   "  They bet AND deviate on their own count, strongest in 1-2 deck games."),
     "spread_min": ("Counter betting (COUNT / TRACK / ORACLE, and the heat experiment). The bet placed at or "
                    "below the ramp start, in units (1 unit = the table minimum). The bottom of the spread."),
     "spread_max": ("Counter betting. The largest bet, in units -- the top of the spread (a 1-to-N spread). "
