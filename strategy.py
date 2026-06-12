@@ -33,16 +33,27 @@ def basicPlay(player, i, upcard, canDouble, canSplit, canSurrender):
     return _hardPlay(total, upcard, canDouble)
 
 
-def countPlay(player, i, upcard, trueCount, canDouble, canSplit, canSurrender):
+def countPlay(player, i, upcard, trueCount, canDouble, canSplit, canSurrender,
+              engine=False):
     total = player.getTotal(i)
     soft = player.soft
-    # Index plays apply only to hard, non-pair totals. A None result means the
-    # count does not trigger a deviation, so defer to basic strategy (which may
-    # itself surrender).
-    if (not soft and not player.isPair(i)):
-        dev = _deviation(total, upcard, trueCount, canDouble)
-        if (dev is not None):
-            return dev
+    # Index plays apply to hard totals; pairs get the two 10,10 split plays. A
+    # None result means the count does not trigger a deviation, so defer to
+    # basic strategy (which may itself surrender). engine=True plays the
+    # engine-derived thresholds (COUNTX) instead of the textbook ones.
+    dev = None
+    if (not soft):
+        h17 = _hitSoft17(player)
+        if (player.isPair(i)):
+            if (canSplit):
+                dev = _pairDeviation(player.hand[i][0], upcard, trueCount, engine, h17)
+        else:
+            if (engine):
+                dev = _deviationEngine(total, upcard, trueCount, canDouble, h17)
+            else:
+                dev = _deviation(total, upcard, trueCount, canDouble)
+    if (dev is not None):
+        return dev
     return basicPlay(player, i, upcard, canDouble, canSplit, canSurrender)
 
 
@@ -170,4 +181,63 @@ def _deviation(total, up, tc, canDouble):
         return DOUBLE if (tc >= 1 and canDouble) else None    # 9 v 2   index +1
     if (total == 9 and up == 7):
         return DOUBLE if (tc >= 3 and canDouble) else None    # 9 v 7   index +3
+    return None
+
+
+def _pairDeviation(card, up, tc, engine=False, h17=True):
+    """The two Illustrious-18 split plays: break a 20 (10,10) against a weak
+    upcard when the deck is ten-rich enough that two ten-anchored hands beat
+    standing on it. Textbook Hi-Lo indices: v 5 at +5, v 6 at +4."""
+    if (card == 10):
+        idx = ENGINE_INDICES[bool(h17)]["split10"] if engine else {5: 5.0, 6: 4.0}
+        t = idx.get(up)
+        if (t is not None and tc >= t):
+            return SPLIT
+    return None
+
+
+# Engine-derived index thresholds for our exact game (6 decks, no surrender),
+# from precompute_indices.py: for each cell, the Hi-Lo true count where the
+# deviation action's exact EV overtakes basic's (regression of the
+# per-composition EV gap on the true count). Keyed by hitSoft17 -- the dealer
+# rule shifts several indices (e.g. 10 v A: +2.9 under H17 vs +3.7 under S17).
+# The surrender rule does not move these cells (none of the EV gaps involve
+# the surrender action). COUNTX plays these; COUNT plays the textbook
+# Illustrious-18 numbers above.
+ENGINE_INDICES = {
+    True: {   # H17
+        "stand": {(16, 10): 0.14, (16, 9): 4.19, (15, 10): 3.94, (12, 2): 2.51, (12, 3): 0.87},
+        "hit": {(13, 2): -1.51, (13, 3): -2.86, (12, 4): -0.58, (12, 5): -1.85, (12, 6): -3.72},
+        # (11,1) omitted: a no-op under H17, where basic already doubles 11 v A
+        "double": {(10, 10): 3.64, (10, 1): 2.91, (9, 2): 0.96, (9, 7): 3.47},
+        "split10": {5: 4.90, 6: 3.83},
+        "insurance": 3.31,
+    },
+    False: {  # S17
+        "stand": {(16, 10): 0.14, (16, 9): 4.19, (15, 10): 3.94, (12, 2): 3.00, (12, 3): 1.28},
+        "hit": {(13, 2): -1.02, (13, 3): -2.45, (12, 4): -0.21, (12, 5): -1.69, (12, 6): -1.32},
+        "double": {(10, 10): 3.64, (10, 1): 3.71, (11, 1): 1.48, (9, 2): 0.95, (9, 7): 3.47},
+        "split10": {5: 4.95, 6: 4.35},
+        "insurance": 3.31,
+    },
+}
+
+
+def engine_indices(h17=True):
+    return ENGINE_INDICES[bool(h17)]
+
+
+def _deviationEngine(total, up, tc, canDouble, h17=True):
+    """Count deviations using the engine-derived thresholds (COUNTX)."""
+    idx = ENGINE_INDICES[bool(h17)]
+    t = idx["stand"].get((total, up))
+    if (t is not None and tc >= t):
+        return STAND
+    t = idx["hit"].get((total, up))
+    if (t is not None and tc < t):
+        return HIT
+    if (canDouble):
+        t = idx["double"].get((total, up))
+        if (t is not None and tc >= t):
+            return DOUBLE
     return None

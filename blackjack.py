@@ -14,7 +14,8 @@ DEFAULT_RULES = {
     "maxHands": 4,          # cap on hands after splitting
 }
 
-COUNTERS = ("COUNT", "TRACK", "ORACLE", "HIOPT2", "ZEN", "OMEGA2")   # advantage strategies heat/bankroll apply to
+COUNTERS = ("COUNT", "TRACK", "ORACLE", "HIOPT2", "ZEN", "OMEGA2",
+            "COUNT0", "COUNTX")   # advantage strategies heat/bankroll apply to
 LEVEL2 = ("HIOPT2", "ZEN", "OMEGA2")      # level-2 counts: bet and play on their own count
 
 

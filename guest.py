@@ -4,9 +4,10 @@ from strategy import basicPlay, countPlay
 import random
 
 # Strategies that ramp their bet on a count signal (everyone else flat-bets).
-BET_COUNTERS = ("COUNT", "TRACK", "ORACLE", "HIOPT2", "ZEN", "OMEGA2")
+BET_COUNTERS = ("COUNT", "TRACK", "ORACLE", "HIOPT2", "ZEN", "OMEGA2",
+                "COUNT0", "COUNTX")
 # Strategies that play count-based deviations on their own true count.
-DEVIATORS = ("COUNT", "ORACLE", "HIOPT2", "ZEN", "OMEGA2")
+DEVIATORS = ("COUNT", "ORACLE", "HIOPT2", "ZEN", "OMEGA2", "COUNTX")
 
 
 class Guest (Player):
@@ -76,6 +77,10 @@ class Guest (Player):
     def wantsInsurance(self, trueCount):
         # Insure when the deck is ten-rich. The level-2 counts use the same +3
         # threshold: their tags are Hi-Lo-RMS-scaled, so the scale is shared.
+        # COUNTX uses the engine-derived threshold; COUNT0 never deviates.
+        if (self.strategy == "COUNTX"):
+            from strategy import engine_indices, _hitSoft17
+            return trueCount >= engine_indices(_hitSoft17(self))["insurance"]
         return (self.strategy in ("COUNT", "HIOPT2", "ZEN", "OMEGA2")
                 and trueCount >= 3)
 
@@ -112,4 +117,13 @@ class Guest (Player):
             # passes this strategy's true count in trueCount (Hi-Lo-scaled tags,
             # so the same index thresholds apply approximately).
             return countPlay(self, i, upcard, trueCount, canDouble, canSplit, canSurrender)
+        if (self.strategy == "COUNT0"):
+            # Hi-Lo bet spread with NO play deviations: isolates what the
+            # index plays are worth (COUNT minus COUNT0 = deviation value).
+            return basicPlay(self, i, upcard, canDouble, canSplit, canSurrender)
+        if (self.strategy == "COUNTX"):
+            # Hi-Lo spread + the ENGINE-DERIVED index thresholds for this exact
+            # game, instead of the textbook Illustrious-18 numbers.
+            return countPlay(self, i, upcard, trueCount, canDouble, canSplit,
+                             canSurrender, engine=True)
         return Play.STAND.value

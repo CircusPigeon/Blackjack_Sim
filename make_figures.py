@@ -47,12 +47,14 @@ ROUNDS_DEFAULT = 40000
 # The casino-shuffle + live-tracking spec and the many-player spec cost far more
 # per hand, so they run with proportionally fewer rounds (their effects are large
 # and don't need as many hands to resolve). Keeps the whole run to ~25 min.
-HEAVY = {"shuffle_tracking": 0.5, "dummy_players": 0.6, "edge_crossover": 2.5}
+HEAVY = {"shuffle_tracking": 0.5, "dummy_players": 0.6, "edge_crossover": 2.5,
+         "deviation_value": 1.5}
 
 # Specs that need extra Monte-Carlo trials to read cleanly. dummy_players is
 # EV-flat by design, so it needs tight, overlapping CIs to LOOK flat (not noisy).
 # edge_crossover prefers fewer, longer trials (rare high counts dominate noise).
-SPEC_TRIALS = {"dummy_players": 2.5, "shuffle_tracking": 2.0, "edge_crossover": 0.6}
+SPEC_TRIALS = {"dummy_players": 2.5, "shuffle_tracking": 2.0, "edge_crossover": 0.6,
+               "deviation_value": 0.6}
 
 # Realistic advantage-player bet spread used across the counting figures: a 1-to-12
 # ramp climbing 2 units per true count from TC +1 (so it reaches the cap ~TC +6).
@@ -477,6 +479,60 @@ def exp_kills_counting(trials, rounds):
     return [("kills_counting", fig)], nums
 
 
+def exp_deviation_value(trials, rounds):
+    """What are the index plays actually worth, live? Three Hi-Lo counters with
+    IDENTICAL bet spreads sit at the same table on the same shoes: COUNT0 (no
+    deviations), COUNT (textbook Illustrious 18), COUNTX (the same 18 cells with
+    engine-derived thresholds for this exact game). The paired difference vs
+    COUNT0 is the realized value of the deviations; COUNTX minus COUNT is what
+    re-deriving the thresholds buys."""
+    import random
+    from blackjack import Blackjack
+
+    decks = (1, 6)
+    bars = {"COUNT": [], "COUNTX": []}
+    cis = {"COUNT": [], "COUNTX": []}
+    nums = {}
+    for D in decks:
+        diffs = {"COUNT": [], "COUNTX": []}
+        for t in range(trials):
+            random.seed(9000 + t)
+            cfg = Config(experiment="game", strategies=("COUNT0", "COUNT", "COUNTX"),
+                         numPacks=D, rounds=rounds, seed=9000 + t,
+                         shuffle="random", **SPREAD)
+            bj = Blackjack(cfg, record=True)
+            for _ in range(cfg.rounds):
+                bj.run()
+            e = {g.strategy: 100.0 * g.getEdge() for g in bj.guests}
+            diffs["COUNT"].append(e["COUNT"] - e["COUNT0"])
+            diffs["COUNTX"].append(e["COUNTX"] - e["COUNT0"])
+        nums[str(D)] = {}
+        for s in ("COUNT", "COUNTX"):
+            m, ci = mean_ci(diffs[s])
+            bars[s].append(m)
+            cis[s].append(ci)
+            nums[str(D)][s + "_minus_COUNT0"] = _stat(m, ci)
+        print("    decks=%d  textbook %+.3f+/-%.3f  engine %+.3f+/-%.3f"
+              % (D, bars["COUNT"][-1], cis["COUNT"][-1],
+                 bars["COUNTX"][-1], cis["COUNTX"][-1]), flush=True)
+
+    fig = A._new_figure(figsize=(8.0, 5.2))
+    ax = fig.add_subplot(111)
+    ax.axhline(0, color="0.5", lw=0.8)
+    x = np.arange(len(decks))
+    w = 0.34
+    ax.bar(x - w / 2, bars["COUNT"], w, yerr=cis["COUNT"], capsize=5,
+           color="#2980b9", ecolor="0.25", label="textbook Illustrious 18  (COUNT)")
+    ax.bar(x + w / 2, bars["COUNTX"], w, yerr=cis["COUNTX"], capsize=5,
+           color="#1a9850", ecolor="0.25", label="engine-derived indices  (COUNTX)")
+    ax.set_xticks(x)
+    ax.set_xticklabels(["%d deck%s" % (D, "" if D == 1 else "s") for D in decks], fontsize=11)
+    A._style(ax, "What index plays are worth: edge gained over the same counter with no deviations",
+             None, "edge vs COUNT0 (% per hand, paired shoes)")
+    ax.legend(fontsize=10)
+    return [("deviation_value", fig)], nums
+
+
 def exp_counting_systems(trials, rounds):
     """The betting-correlation vs playing-efficiency trade-off across counting
     systems (Hi-Lo, the level-2 counts, and the EoR-optimal ORACLE weights).
@@ -674,6 +730,7 @@ FIGURES = {
     "penetration": (exp_penetration, "Counter edge rises with penetration"),
     "kills_counting": (exp_kills_counting, "6:5 / CSM / shallow pen neutralize counting"),
     "counting_systems": (exp_counting_systems, "Counting systems: BC vs PE trade-off"),
+    "deviation_value": (exp_deviation_value, "Index plays: textbook vs engine-derived, value over no deviations"),
     "edge_crossover": (exp_edge_crossover, "Best of both worlds: ORACLE bets + CEILING play"),
     "dummy_players": (exp_dummy_players, "Same edge, fewer hands/hour"),
     "shuffle_tracking": (exp_shuffle_tracking, "Tracking only beats a sloppy, uncut shoe"),

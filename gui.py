@@ -37,8 +37,9 @@ import experiment
 
 OUTDIR = "results"
 FONT_PT = 10
-STRATEGIES = ["BASIC", "COUNT", "DEALER", "TRACK", "ORACLE", "HIOPT2", "ZEN", "OMEGA2"]
-COUNTERS = ("COUNT", "TRACK", "ORACLE", "HIOPT2", "ZEN", "OMEGA2")
+STRATEGIES = ["BASIC", "COUNT", "COUNT0", "COUNTX", "DEALER", "TRACK", "ORACLE",
+              "HIOPT2", "ZEN", "OMEGA2"]
+COUNTERS = ("COUNT", "TRACK", "ORACLE", "HIOPT2", "ZEN", "OMEGA2", "COUNT0", "COUNTX")
 
 
 class Cancelled(Exception):
@@ -78,6 +79,8 @@ DEFS = {
     "strategies": ("Who sits at the table:\n"
                    "- BASIC: perfect basic strategy, same flat bet every hand\n"
                    "- COUNT: Hi-Lo card counter (bets more when the deck is rich, plus play changes)\n"
+                   "- COUNT0: Hi-Lo bet spread but NO play deviations (isolates what deviations add)\n"
+                   "- COUNTX: Hi-Lo spread + engine-derived index thresholds for this exact game\n"
                    "- DEALER: just mimics the dealer (hits to 17)\n"
                    "- TRACK: shuffle tracker (follows clumps of high cards through a weak shuffle)\n"
                    "- ORACLE: bets using the mathematically optimal per-card weights (effect of removal)\n"
@@ -366,8 +369,9 @@ class App:
 
         row("Label", ttk.Entry(cfgbox, textvariable=self.label_var, width=14), "label")
         strat_frame = ttk.Frame(cfgbox)
-        for s in STRATEGIES:
-            ttk.Checkbutton(strat_frame, text=s, variable=self.strat_vars[s]).pack(anchor="w")
+        for k, s in enumerate(STRATEGIES):
+            ttk.Checkbutton(strat_frame, text=s, variable=self.strat_vars[s]).grid(
+                row=k // 2, column=k % 2, sticky="w", padx=(0, 12))
         row("Strategies", strat_frame, "strategies")
         row("  Min bet (units)", combo(self.spreadmin_var, ["1", "2", "5"]), "spread_min", "readonly")
         row("  Max bet (units)", combo(self.spreadmax_var, ["4", "6", "8", "12", "16", "20", "40"]), "spread_max", "readonly")

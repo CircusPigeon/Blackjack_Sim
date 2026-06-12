@@ -59,7 +59,9 @@ Tables print to stdout; CSV/JSON records and PNG plots land in `results/`.
 ## Strategies (sit any mix at one table, same shoes)
 
 - `BASIC`, `DEALER` (mimic), `RANDOM`, `STAND` — baselines
-- `COUNT` — Hi-Lo: bet spread + Illustrious-18 deviations
+- `COUNT` — Hi-Lo: bet spread + the full Illustrious-18 deviations
+- `COUNT0` — Hi-Lo bet spread, **no** deviations (COUNT − COUNT0 = what index plays are worth)
+- `COUNTX` — Hi-Lo bet spread + **engine-derived** index thresholds (`precompute_indices.py`)
 - `ORACLE` — effect-of-removal (best *linear*) betting weights
 - `HIOPT2`, `ZEN`, `OMEGA2` — level-2 counts: finer tags trade a little betting
   correlation for better playing decisions (bet *and* deviate on their own count)
@@ -74,8 +76,12 @@ number drives both (a) **bet sizing** — a linear ramp on TC (flat minimum belo
 `ramp_start`, then `spread_slope` extra units per +1 TC, capped at `spread_max`)
 — and (b) **play** — basic strategy plus the hard-total Hi-Lo "Illustrious-18"
 index deviations (override basic when the TC crosses a cell's threshold; e.g.
-stand 16 vs 10 at TC ≥ 0). Insurance and the two pair-split index plays aren't
-modeled here.
+stand 16 vs 10 at TC ≥ 0). Insurance is taken at TC ≥ +3 and the two pair-split
+plays (10,10 v 5 at +5, v 6 at +4) are included, so all 18 plays are modeled.
+Two variants bracket it: `COUNT0` (same bet spread, no deviations — the paired
+difference is what the index plays are worth) and `COUNTX` (same cells, but with
+index thresholds re-derived from this engine for the exact ruleset by
+`precompute_indices.py` — the textbook numbers date to older S17 games).
 
 **ORACLE — the best *linear* betting count for our exact game.** Plays
 *identically* to COUNT (same deviations) — deliberately, to isolate one question:
@@ -155,6 +161,7 @@ heat.py        the detection / back-off game
 ca.py          combinatorial-analysis playing ceiling
 main.py        CLI
 precompute_eor.py  derive the EoR betting weights per ruleset + the nonlinear betting-ceiling check
+precompute_indices.py  derive the index-play thresholds (Illustrious 18) for this exact game
 make_figures.py  regenerate the curated write-up figures (SVG/PNG) + manifest
                  (incl. counting_systems BC/PE scatter and the edge_crossover figure)
 ```
@@ -253,19 +260,11 @@ play** stays outside the live engine (~ms/decision); it lives in `ceiling`.
 
 ## Caveats
 
-The CA ceiling plays pairs by total (**no splits**) and approximates based on the deck decomposition going into a hand. It respects H17/S17, late
-surrender, and deck count. The counter's Illustrious-18 deviation set uses textbook
-thresholds rather than engine-derived ones and omits the two split index plays;
-insurance is taken at TC ≥ +3 (worth only ≈ 0.08%/hand at best, so low impact).
-The level-2 counters (`HIOPT2`/`ZEN`/`OMEGA2`) reuse the Hi-Lo deviation cells and
-thresholds on their own RMS-rescaled count rather than system-specific index
-tables. ORACLE deliberately plays like COUNT (it
-isolates the *betting* count, not play). Risk sims resample i.i.d. hands (no
-within-shoe serial correlation).
-```
-The CA ceiling plays pairs by total (**no splits**) and approximates based on the deck 
-composition going into a hand. It respects H17/S17, late surrender, and deck count. 
-The counter's Illustrious-18 deviation set is a subset using textbook thresholds rather 
-than engine-derived ones (worth only ≈ 0.07%/hand at best, so low impact). ORACLE 
-deliberately plays like COUNT (it isolates the *betting* count, not play). Risk sims resample 
-i.i.d. hands (no within-shoe serial correlation).
+The CA ceiling plays pairs by total (**no splits**) and approximates based on the
+deck composition going into a hand. It respects H17/S17, late surrender, and deck
+count. COUNT plays the full Illustrious 18 (textbook thresholds; the engine-derived
+alternative is COUNTX). The level-2 counters (HIOPT2/ZEN/OMEGA2) reuse the Hi-Lo deviation
+cells and thresholds on their own RMS-rescaled count rather than system-specific
+index tables. ORACLE deliberately plays like COUNT (it isolates the *betting*
+count, not play). Risk sims resample i.i.d. hands (no within-shoe serial
+correlation).

@@ -337,5 +337,37 @@
     "trials": 30,
     "rounds": 40000,
     "smoke": false
+  },
+  "deviation_value": {
+    "description": "Index plays: textbook vs engine-derived, value over no deviations",
+    "numbers": {
+      "1": {
+        "COUNT_minus_COUNT0": {
+          "mean": 0.9561,
+          "ci95": 0.3447
+        },
+        "COUNTX_minus_COUNT0": {
+          "mean": 0.9243,
+          "ci95": 0.3185
+        }
+      },
+      "6": {
+        "COUNT_minus_COUNT0": {
+          "mean": 0.2836,
+          "ci95": 0.3564
+        },
+        "COUNTX_minus_COUNT0": {
+          "mean": 0.4523,
+          "ci95": 0.3122
+        }
+      }
+    },
+    "files": [
+      "figures\\deviation_value.svg",
+      "figures\\deviation_value.png"
+    ],
+    "trials": 18,
+    "rounds": 60000,
+    "smoke": false
   }
 }
