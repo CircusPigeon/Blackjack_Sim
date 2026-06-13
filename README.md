@@ -62,6 +62,8 @@ Tables print to stdout; CSV/JSON records and PNG plots land in `results/`.
 - `COUNT` — Hi-Lo: bet spread + the full Illustrious-18 deviations
 - `COUNT0` — Hi-Lo bet spread, **no** deviations (COUNT − COUNT0 = what index plays are worth)
 - `COUNTX` — Hi-Lo bet spread + **engine-derived** index thresholds (`precompute_indices.py`)
+- `WONG` — Hi-Lo, but back-counts: sits out hands below `wong_below` true count (bets 0,
+  takes no cards), plays the rest like COUNT
 - `ORACLE` — effect-of-removal (best *linear*) betting weights
 - `HIOPT2`, `ZEN`, `OMEGA2` — level-2 counts: finer tags trade a little betting
   correlation for better playing decisions (bet *and* deviate on their own count)
@@ -81,7 +83,14 @@ plays (10,10 v 5 at +5, v 6 at +4) are included, so all 18 plays are modeled.
 Two variants bracket it: `COUNT0` (same bet spread, no deviations — the paired
 difference is what the index plays are worth) and `COUNTX` (same cells, but with
 index thresholds re-derived from this engine for the exact ruleset by
-`precompute_indices.py` — the textbook numbers date to older S17 games).
+`precompute_indices.py`, keyed by `hitSoft17` — the textbook numbers date to older
+S17 games; the engine finds e.g. 10 v A at +3 under H17, not the book's +4).
+
+**WONG — Hi-Lo with back-counting.** Identical to COUNT on the hands it plays, but
+it sits out entirely (bets 0, takes no cards) while the true count is below
+`wong_below`, only stepping in on the favorable shoes. Skipping the bad counts
+raises the edge on the hands actually played; the cost is throughput. Most of the
+gain comes from wonging out just the clearly negative counts.
 
 **ORACLE — the best *linear* betting count for our exact game.** Plays
 *identically* to COUNT (same deviations) — deliberately, to isolate one question:
@@ -137,6 +146,8 @@ total (**splits not modeled**), so it is the *no-split* playing ceiling.
 | **betting correlation (BC)** | how well a count's per-card tags track the EoR weights (1.0 = perfect). Hi-Lo ≈ 0.96; ORACLE = 1.0 by construction |
 | **playing efficiency (PE)** | how much of the composition-perfect playing gain a count captures via its index plays. Hi-Lo ≈ 0.63; level-2 counts (Hi-Opt II / Zen / Omega II) ≈ 0.74–0.78 |
 | **bet spread / ramp** | how a counter scales bets with TC: `spread_min`–`spread_max` units, climbing `spread_slope` units per +1 TC from `ramp_start` |
+| **wonging / back-counting** | sitting out hands while the count is unfavorable, playing only the good shoes (the `WONG` strategy). `wong_below` |
+| **index play / deviation** | a count-triggered exception to basic strategy; the *index* is the true count at which the alternative action becomes correct (the Illustrious 18 are the 18 most valuable) |
 | **casino shuffle** | a realistic hand shuffle — N GSR riffles + strips + a final cut (`shuffleRiffles/Strips/Cut`); not fully randomizing, hence trackable |
 | **CSM** | continuous shuffle machine — dealt cards return to the shoe each hand, so no count ever builds (`shuffle=csm`) |
 | **dummy players** | untracked bystanders who consume cards; they don't change your per-hand edge, only hands/hour |
@@ -257,6 +268,22 @@ play** stays outside the live engine (~ms/decision); it lives in `ceiling`.
   is ≈ 1.3× the *flat-bet* playing ceiling, because it bets biggest in exactly the skewed
   shoes where perfect play deviates most. Betting is still ≈ 70–80% of the total edge in
   every game (`make_figures.py --only edge_crossover`).
+- **Index plays are worth having, not worth perfecting.** The full Illustrious 18 is
+  worth ≈ +1%/hand in single deck and ≈ +0.4% in a 6-deck shoe over the same counter
+  with no deviations; re-deriving the thresholds for the exact game (`COUNTX`) edges out
+  the textbook numbers by an amount that stays inside the error bars — the actions are
+  near-tied in EV at their index, so a count off costs almost nothing.
+- **Profit is concentrated in rare hands.** For a spreading Hi-Lo counter, hands at TC ≥ +3
+  are < 8% of all hands but supply ~170% of the net profit; the majority, played near the
+  minimum bet, lose slowly. Those few big bets are exactly what the pit watches.
+- **Back-counting (wonging) helps, but mildly at a shoe game.** Sitting out the clearly
+  negative counts roughly doubles the edge per hand played; sitting out too aggressively
+  costs throughput for little extra edge.
+- **The whole stack vs a real casino.** A player using everything (Hi-Lo + full I18 +
+  wonging + half-Kelly off a finite roll) at a 6-deck table with a casino shuffle and a
+  live pit: ≈ 47% still grinding a profit, ≈ 20% barred, ≈ 33% broke, median career near
+  breakeven (`make_figures.py --only practical_player`). The edge is real and the living
+  is hard.
 
 ## Caveats
 

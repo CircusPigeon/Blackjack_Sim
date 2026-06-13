@@ -5,9 +5,9 @@ import random
 
 # Strategies that ramp their bet on a count signal (everyone else flat-bets).
 BET_COUNTERS = ("COUNT", "TRACK", "ORACLE", "HIOPT2", "ZEN", "OMEGA2",
-                "COUNT0", "COUNTX")
+                "COUNT0", "COUNTX", "WONG")
 # Strategies that play count-based deviations on their own true count.
-DEVIATORS = ("COUNT", "ORACLE", "HIOPT2", "ZEN", "OMEGA2", "COUNTX")
+DEVIATORS = ("COUNT", "ORACLE", "HIOPT2", "ZEN", "OMEGA2", "COUNTX", "WONG")
 
 
 class Guest (Player):
@@ -25,6 +25,7 @@ class Guest (Player):
         self.maxUnits = 20
         self.rampStart = 1.0
         self.slope = 1.0             # extra units per +1 true count above rampStart
+        self.wongBelow = 1.0         # WONG only: sit out below this true count
         self.bet = unit
         self.bets = [unit]
         self.insuranceBet = 0
@@ -50,6 +51,10 @@ class Guest (Player):
         # COUNT ramps on the true count; TRACK ramps on the tracker's predicted
         # upcoming richness. Both use the same Kelly-ish ramp. Everyone else flat.
         if (self.out):
+            self.bet = 0
+            return
+        if (self.strategy == "WONG" and signal < self.wongBelow):
+            # Wong out: a zero bet tells the engine to skip dealing this player.
             self.bet = 0
             return
         if (self.bankrollMode and self.strategy in BET_COUNTERS):
@@ -81,7 +86,7 @@ class Guest (Player):
         if (self.strategy == "COUNTX"):
             from strategy import engine_indices, _hitSoft17
             return trueCount >= engine_indices(_hitSoft17(self))["insurance"]
-        return (self.strategy in ("COUNT", "HIOPT2", "ZEN", "OMEGA2")
+        return (self.strategy in ("COUNT", "WONG", "HIOPT2", "ZEN", "OMEGA2")
                 and trueCount >= 3)
 
     def getProfit(self):
@@ -103,7 +108,9 @@ class Guest (Player):
             return Play.STAND.value
         if (self.strategy == "BASIC"):
             return basicPlay(self, i, upcard, canDouble, canSplit, canSurrender)
-        if (self.strategy == "COUNT"):
+        if (self.strategy in ("COUNT", "WONG")):
+            # WONG plays exactly like COUNT on the hands it does play; its edge
+            # comes from refusing to play the negative counts at all.
             return countPlay(self, i, upcard, trueCount, canDouble, canSplit, canSurrender)
         if (self.strategy == "TRACK"):
             # Shuffle tracking is a betting edge; play sound basic strategy.

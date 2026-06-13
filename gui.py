@@ -37,9 +37,10 @@ import experiment
 
 OUTDIR = "results"
 FONT_PT = 10
-STRATEGIES = ["BASIC", "COUNT", "COUNT0", "COUNTX", "DEALER", "TRACK", "ORACLE",
-              "HIOPT2", "ZEN", "OMEGA2"]
-COUNTERS = ("COUNT", "TRACK", "ORACLE", "HIOPT2", "ZEN", "OMEGA2", "COUNT0", "COUNTX")
+STRATEGIES = ["BASIC", "COUNT", "COUNT0", "COUNTX", "WONG", "DEALER", "TRACK",
+              "ORACLE", "HIOPT2", "ZEN", "OMEGA2"]
+COUNTERS = ("COUNT", "TRACK", "ORACLE", "HIOPT2", "ZEN", "OMEGA2", "COUNT0",
+            "COUNTX", "WONG")
 
 
 class Cancelled(Exception):
@@ -81,6 +82,8 @@ DEFS = {
                    "- COUNT: Hi-Lo card counter (bets more when the deck is rich, plus play changes)\n"
                    "- COUNT0: Hi-Lo bet spread but NO play deviations (isolates what deviations add)\n"
                    "- COUNTX: Hi-Lo spread + engine-derived index thresholds for this exact game\n"
+                   "- WONG: like COUNT, but sits out hands while the true count is below the\n"
+                   "  'Wong out below' threshold (back-counting; plays only the good counts)\n"
                    "- DEALER: just mimics the dealer (hits to 17)\n"
                    "- TRACK: shuffle tracker (follows clumps of high cards through a weak shuffle)\n"
                    "- ORACLE: bets using the mathematically optimal per-card weights (effect of removal)\n"
@@ -97,6 +100,8 @@ DEFS = {
     "spread_slope": ("Counter betting. Extra units added to your bet per +1 true count above the ramp start -- "
                      "the steepness of the spread. 1 = gentle; 2-3 = aggressive (hits the max bet sooner, "
                      "earns more per hand but swingier and easier to detect)."),
+    "wong_below": ("WONG only: sit out (no bet, no cards) while the true count is below this. The classic "
+                   "back-counting play -- skip the bad counts entirely, play only the good ones."),
     "shuffle": ("How the shoe is shuffled:\n"
                 "- random: perfectly mixed every shoe (the ideal)\n"
                 "- casino: a realistic hand shuffle (riffles, a strip, a cut). Not fully mixed -> trackable.\n"
@@ -158,6 +163,8 @@ def relevant_controls(exp, heat_live, bankroll_live, shuffle, strategies=()):
             s |= {"shuffleRiffles", "shuffleStrips", "shuffleCut"}
         if (has_counter):
             s |= spread_knobs
+        if ("WONG" in strategies):
+            s.add("wong_below")
         if (heat_live):
             s |= heat_knobs
         if (bankroll_live):
@@ -348,6 +355,7 @@ class App:
         self.spreadmax_var = tk.StringVar(value="20")
         self.rampstart_var = tk.StringVar(value="1.0")
         self.spreadslope_var = tk.StringVar(value="1.0")
+        self.wong_var = tk.StringVar(value="1.0")
         self.strat_vars = {s: tk.BooleanVar(value=(s in ("BASIC", "COUNT", "DEALER")))
                            for s in STRATEGIES}
 
@@ -377,6 +385,7 @@ class App:
         row("  Max bet (units)", combo(self.spreadmax_var, ["4", "6", "8", "12", "16", "20", "40"]), "spread_max", "readonly")
         row("  Ramp start (true count)", combo(self.rampstart_var, ["0.0", "0.5", "1.0", "1.5", "2.0", "3.0"]), "ramp_start", "readonly")
         row("  Ramp slope (units / TC)", combo(self.spreadslope_var, ["1.0", "1.5", "2.0", "2.5", "3.0"]), "spread_slope", "readonly")
+        row("  Wong out below (TC)", combo(self.wong_var, ["-2.0", "-1.0", "0.0", "1.0", "2.0"]), "wong_below", "readonly")
         row("Shuffle", combo(self.shuffle_var, ["random", "casino", "csm"]), "shuffle", "readonly")
         row("  Riffles (casino)", combo(self.riffles_var, ["1", "2", "3", "4", "5", "7"]), "shuffleRiffles", "readonly")
         row("  Strips (casino)", combo(self.strips_var, ["0", "1", "2"]), "shuffleStrips", "readonly")
@@ -487,6 +496,7 @@ class App:
             spread_max=int(self.spreadmax_var.get()),
             ramp_start=float(self.rampstart_var.get()),
             spread_slope=float(self.spreadslope_var.get()),
+            wong_below=float(self.wong_var.get()),
             shuffle=self.shuffle_var.get(),
             shuffleRiffles=int(self.riffles_var.get()),
             shuffleStrips=int(self.strips_var.get()),

@@ -48,13 +48,15 @@ ROUNDS_DEFAULT = 40000
 # per hand, so they run with proportionally fewer rounds (their effects are large
 # and don't need as many hands to resolve). Keeps the whole run to ~25 min.
 HEAVY = {"shuffle_tracking": 0.5, "dummy_players": 0.6, "edge_crossover": 2.5,
-         "deviation_value": 1.5}
+         "deviation_value": 1.0}
 
 # Specs that need extra Monte-Carlo trials to read cleanly. dummy_players is
 # EV-flat by design, so it needs tight, overlapping CIs to LOOK flat (not noisy).
 # edge_crossover prefers fewer, longer trials (rare high counts dominate noise).
-SPEC_TRIALS = {"dummy_players": 2.5, "shuffle_tracking": 2.0, "edge_crossover": 0.6,
-               "deviation_value": 0.6}
+# The bumped counts below trade a slower full regen for visibly tighter CIs.
+SPEC_TRIALS = {"dummy_players": 5.0, "shuffle_tracking": 4.0, "edge_crossover": 0.6,
+               "deviation_value": 6.0, "kills_counting": 3.0,
+               "profit_by_count": 3.0, "wonging": 2.0, "practical_player": 10.0}
 
 # Realistic advantage-player bet spread used across the counting figures: a 1-to-12
 # ramp climbing 2 units per true count from TC +1 (so it reaches the cap ~TC +6).
@@ -479,22 +481,310 @@ def exp_kills_counting(trials, rounds):
     return [("kills_counting", fig)], nums
 
 
+def exp_tc_distribution(trials, rounds):
+    """Why fewer decks help: the distribution of the true count at bet time, by
+    deck count, plus a CSM. With one deck the count swings hard and often visits
+    the profitable region; a 6-deck shoe barely leaves zero; a CSM is pinned at
+    exactly zero, which is the whole reason it kills counting."""
+    import random
+    from blackjack import Blackjack
+
+    conditions = [
+        ("1 deck", dict(numPacks=1), "#c0392b"),
+        ("2 decks", dict(numPacks=2), "#e67e22"),
+        ("6 decks", dict(numPacks=6), "#2980b9"),
+        ("8 decks", dict(numPacks=8), "#34495e"),
+        ("6 decks, CSM", dict(numPacks=6, shuffle="csm"), "#7f8c8d"),
+    ]
+    tr = max(4, trials // 3)
+    n = max(rounds * 2, 20000) if not SMOKE else rounds
+    # Integer-centered width-1 bins: true counts cluster at a few discrete values
+    # (running count / decks left), so finer bins produce comb artifacts.
+    bins = np.arange(-8.5, 9.0, 1.0)
+    mids = 0.5 * (bins[:-1] + bins[1:])
+    fig = A._new_figure(figsize=(8.6, 5.2))
+    ax = fig.add_subplot(111)
+    nums = {}
+    for label, kw, color in conditions:
+        fracs, p1, p3 = [], [], []
+        for t in range(tr):
+            random.seed(17 + t)
+            ckw = dict(shuffle="random", penetration=0.75)
+            ckw.update(kw)
+            cfg = Config(experiment="game", strategies=("BASIC",), rounds=n,
+                         seed=17 + t, **ckw)
+            bj = Blackjack(cfg, record=True)
+            for _ in range(n):
+                bj.run()
+            tc = np.asarray(bj.records["true_count"], float)
+            h, _ = np.histogram(np.clip(tc, -8, 8), bins=bins)
+            fracs.append(h / h.sum())
+            p1.append((tc >= 1).mean())
+            p3.append((tc >= 3).mean())
+        arr = np.array(fracs)
+        mean = arr.mean(0)
+        ci = 1.96 * arr.std(0, ddof=1) / np.sqrt(tr)
+        style = "--" if "CSM" in label else "-"
+        ax.plot(mids, mean, style, marker="o", markersize=3.5, color=color,
+                lw=1.7, label=label)
+        ax.fill_between(mids, mean - ci, mean + ci, color=color, alpha=0.18)
+        nums[label] = {"P(tc>=+1)": round(float(np.mean(p1)), 4),
+                       "P(tc>=+3)": round(float(np.mean(p3)), 4)}
+        print("    %-13s P(tc>=+1)=%.3f  P(tc>=+3)=%.3f"
+              % (label, np.mean(p1), np.mean(p3)), flush=True)
+    ax.axvline(1.0, color="0.55", lw=1.0, ls=":")
+    ax.text(1.15, ax.get_ylim()[1] * 0.93, "bet ramp starts", fontsize=9, color="0.4")
+    ax.set_xticks(range(-8, 9))
+    A._style(ax, "Why fewer decks help: how far the true count wanders",
+             "true count at bet time (75% penetration; ends clipped to +/-8)",
+             "fraction of hands")
+    ax.legend(fontsize=10)
+    return [("tc_distribution", fig)], nums
+
+
+def exp_profit_by_count(trials, rounds):
+    """Where a counter's money actually comes from: net profit by true-count bin
+    for a spreading Hi-Lo counter. Most hands are played at or below TC 0 at the
+    minimum bet and lose slowly; nearly all the profit comes from the rare
+    high-count hands where the big bets go out."""
+    import random
+    from blackjack import Blackjack
+
+    lo, hi = -5, 6
+    prof = {b: 0.0 for b in range(lo, hi + 1)}
+    cnt = {b: 0 for b in range(lo, hi + 1)}
+    total_rounds = 0
+    for t in range(trials):
+        random.seed(600 + t)
+        cfg = Config(experiment="game", strategies=("COUNT",), numPacks=6,
+                     rounds=rounds, seed=600 + t, shuffle="random", **SPREAD)
+        bj = Blackjack(cfg, record=True)
+        for _ in range(rounds):
+            bj.run()
+        unit = bj.guests[0].unit
+        tc = np.asarray(bj.records["true_count"], float)
+        res = np.asarray(bj.records["result"], float) / unit
+        bk = np.clip(np.floor(tc).astype(int), lo, hi)
+        for b in range(lo, hi + 1):
+            m = bk == b
+            prof[b] += float(res[m].sum())
+            cnt[b] += int(m.sum())
+        total_rounds += rounds
+
+    xs = list(range(lo, hi + 1))
+    total = sum(prof.values())
+    share = [100.0 * prof[b] / total for b in xs]
+    freq = [100.0 * cnt[b] / total_rounds for b in xs]
+    fig = A._new_figure(figsize=(8.6, 5.2))
+    ax = fig.add_subplot(111)
+    ax.axhline(0, color="0.5", lw=0.8)
+    ax.bar(xs, share, color=["#c0392b" if s < 0 else "#1a9850" for s in share])
+    ax.set_xticks(xs)
+    A._style(ax, "Where the money comes from: profit share by true count (Hi-Lo, 6 decks)",
+             "true count bin (floor)", "share of total net profit (%)")
+    ax2 = ax.twinx()
+    ax2.plot(xs, freq, "o--", color="#2980b9", lw=1.4, markersize=4)
+    ax2.set_ylabel("% of hands dealt at this count", fontsize=12, color="#2980b9")
+    ax2.tick_params(axis="y", colors="#2980b9", labelsize=10)
+    hi_share = sum(100.0 * prof[b] / total for b in xs if b >= 3)
+    hi_freq = sum(100.0 * cnt[b] / total_rounds for b in xs if b >= 3)
+    neg_share = sum(100.0 * prof[b] / total for b in xs if b < 1)
+    nums = {"share_from_tc_ge_3": round(hi_share, 1), "hands_at_tc_ge_3_pct": round(hi_freq, 1),
+            "share_from_tc_lt_1": round(neg_share, 1),
+            "per_bin": {str(b): {"share_pct": round(100.0 * prof[b] / total, 2),
+                                 "freq_pct": round(100.0 * cnt[b] / total_rounds, 2)} for b in xs}}
+    print("    TC>=+3: %.1f%% of profit from %.1f%% of hands; TC<+1 hands net %.1f%%"
+          % (hi_share, hi_freq, neg_share), flush=True)
+    return [("profit_by_count", fig)], nums
+
+
+def exp_wonging(trials, rounds):
+    """Back-counting (wonging): sit out hands while the true count is below a
+    threshold, play normally above it. Skipping the bad counts raises the edge
+    on hands actually played; the cost is playing far fewer hands per hour.
+
+    Two other players sit at the table. That matters: heads-up, sitting out
+    nearly freezes the shoe (only the dealer draws), so the bad stretches you
+    are waiting out last many extra rounds. With other players consuming cards
+    the shoe keeps moving while you wait, which is how wonging works in practice."""
+    import random
+    from matplotlib.ticker import MaxNLocator
+    from blackjack import Blackjack
+
+    conditions = [("always\nplay", None), ("wong out\nbelow -1", -1.0),
+                  ("below 0", 0.0), ("below +1", 1.0), ("below +2", 2.0)]
+    means, cis, played = [], [], []
+    nums = {}
+    for label, th in conditions:
+        vals, fr = [], []
+        for t in range(trials):
+            random.seed(700 + t)
+            strat = "COUNT" if th is None else "WONG"
+            cfg = Config(experiment="game", strategies=(strat,), numPacks=6,
+                         rounds=rounds, seed=700 + t, shuffle="random",
+                         dummyPlayers=2, wong_below=(0.0 if th is None else th),
+                         **SPREAD)
+            bj = Blackjack(cfg, record=True)
+            for _ in range(rounds):
+                bj.run()
+            g = bj.guests[0]
+            vals.append(100.0 * g.getProfit() / g.unit / rounds)
+            fr.append(100.0 * g.handsPlayed / rounds)
+        m, ci = mean_ci(vals)
+        means.append(m)
+        cis.append(ci)
+        played.append(float(np.mean(fr)))
+        key = label.replace("\n", " ")
+        nums[key] = {"profit_per_100_rounds": _stat(m, ci), "hands_played_pct": round(played[-1], 1)}
+        print("    %-16s %+0.2f +/- %.2f units/100 rounds, plays %.0f%% of hands"
+              % (key, m, ci, played[-1]), flush=True)
+
+    x = np.arange(len(conditions))
+    fig = A._new_figure(figsize=(8.6, 5.2))
+    ax = fig.add_subplot(111)
+    ax.axhline(0, color="0.5", lw=0.8)
+    ax.bar(x, means, 0.55, yerr=cis, capsize=5, color="#1a9850", ecolor="0.25")
+    ax.set_xticks(x)
+    ax.set_xticklabels([c[0] for c in conditions], fontsize=10)
+    ax.yaxis.set_major_locator(MaxNLocator(5))
+    A._style(ax, "Wonging: skip the bad counts, keep the good ones (Hi-Lo, 6 decks)",
+             "sit-out threshold", "profit per 100 rounds at the table (units)")
+    ax2 = ax.twinx()
+    ax2.plot(x, played, "o--", color="#2980b9", lw=1.4)
+    ax2.set_ylabel("% of hands played", fontsize=12, color="#2980b9")
+    ax2.set_ylim(0, 100)
+    ax2.set_yticks([0, 25, 50, 75, 100])
+    ax2.tick_params(axis="y", colors="#2980b9", labelsize=10)
+    return [("wonging", fig)], nums
+
+
+def exp_practical_player(trials, rounds):
+    """The capstone: everything at once, under realistic conditions. One player
+    runs the full practical stack -- Hi-Lo with the complete Illustrious 18,
+    wonging out below TC -1, betting half-Kelly from a finite bankroll -- at a
+    6-deck table with a real casino shuffle, two other players, and a pit that
+    watches the bet-vs-count slope and bars counters. Monte-Carlo sessions,
+    each path one career: some go broke, some get barred, some grind it out."""
+    import random
+    from blackjack import Blackjack
+
+    sess = R(3000, 300)               # table rounds per simulated career
+    B0 = 300.0                        # starting bankroll, units (1 unit = table min)
+    step = max(1, sess // 300)
+    trajs, fates, finals, survived = [], [], [], []
+    for t in range(trials):
+        random.seed(800 + t)
+        cfg = Config(experiment="game", strategies=("WONG",), numPacks=6,
+                     rounds=sess, seed=800 + t, shuffle="casino", dummyPlayers=2,
+                     wong_below=-1.0, heat_live=True,
+                     heat_threshold=4.5, heat_rate=0.08, **SPREAD)
+        bj = Blackjack(cfg, record=False)
+        g = bj.guests[0]
+        g.unit = 1                    # bet in units so the bankroll is in units
+        g.money = B0
+        g.startMoney = B0
+        ruined = False
+        path = [B0]
+        for i in range(sess):
+            bj.run()
+            if ((i + 1) % step == 0):
+                path.append(g.money)
+            if (g.money <= 0.5 * B0):
+                ruined = True         # lost half the roll: walks away broke
+                break
+            if (g.out):
+                break
+        trajs.append(np.array(path))
+        finals.append(g.money)
+        survived.append(g.handsPlayed)
+        fates.append("ruined" if ruined else ("barred" if g.barred else "survived"))
+        if ((t + 1) % 25 == 0):
+            print("    %d / %d careers" % (t + 1, trials), flush=True)
+
+    n = float(len(fates))
+    p_ruin = fates.count("ruined") / n
+    p_barred = fates.count("barred") / n
+    p_surv = fates.count("survived") / n
+    colors = {"ruined": "#c0392b", "barred": "#e67e22", "survived": "#2980b9"}
+    fig = A._new_figure(figsize=(8.8, 5.4))
+    ax = fig.add_subplot(111)
+    for path, fate in zip(trajs, fates):
+        ax.plot(np.arange(len(path)) * step, path, lw=0.6, alpha=0.5, color=colors[fate])
+    ax.axhline(B0, color="0.6", lw=0.9)
+    ax.axhline(0.5 * B0, color="0.4", ls=":", lw=1.1)
+    ax.set_yscale("log")
+    import matplotlib.lines as mlines
+    ax.legend(handles=[
+        mlines.Line2D([], [], color=colors["survived"], lw=2,
+                      label="still playing (%.0f%%)" % (100 * p_surv)),
+        mlines.Line2D([], [], color=colors["barred"], lw=2,
+                      label="barred by the pit (%.0f%%)" % (100 * p_barred)),
+        mlines.Line2D([], [], color=colors["ruined"], lw=2,
+                      label="went broke (%.0f%%)" % (100 * p_ruin)),
+    ], fontsize=10, loc="upper left")
+    A._style(ax, "The practical player: full stack vs a casino that fights back",
+             "hands into the career (session ends when barred or broke)",
+             "bankroll (units, log scale)")
+    nums = {"p_ruined": round(p_ruin, 3), "p_barred": round(p_barred, 3),
+            "p_survived": round(p_surv, 3),
+            "median_final_bankroll": round(float(np.median(finals)), 1),
+            "median_hands_survived": int(np.median(survived)),
+            "careers": int(n), "session_hands": sess, "bankroll_units": B0}
+    print("    ruined %.0f%%  barred %.0f%%  survived %.0f%%  median final %.0f units"
+          % (100 * p_ruin, 100 * p_barred, 100 * p_surv, np.median(finals)), flush=True)
+    return [("practical_player", fig)], nums
+
+
+def exp_engine_indices(trials, rounds):
+    """Textbook Illustrious-18 thresholds vs the ones this engine derives for the
+    exact game (6 decks, H17, peek). Uses precompute_indices' sampler: for each
+    play, the exact EV gap between the two actions is computed per sampled shoe
+    composition and regressed on the Hi-Lo true count; the zero crossing is the
+    index. (COUNTX plays the pasted table in strategy.py; this figure just
+    re-derives it for display.) Ignores trials/rounds; sized by its own sampler."""
+    import precompute_indices as pi
+    n = R(40000, 1500)
+    rows = pi.derive(pi.collect(numPacks=6, h17=True, n_samples=n, seed=5))
+    labs = [r[0] for r in rows]
+    tbs = [r[3] for r in rows]
+    idxs = [r[4] for r in rows]
+    y = np.arange(len(rows))[::-1]
+    fig = A._new_figure(figsize=(8.2, 7.2))
+    ax = fig.add_subplot(111)
+    for yi, t, e in zip(y, tbs, idxs):
+        ax.plot([t, e], [yi, yi], color="0.75", lw=1.4, zorder=1)
+    ax.scatter(tbs, y, s=55, color="#7f8c8d", label="textbook Illustrious 18", zorder=2)
+    ax.scatter(idxs, y, s=55, color="#2980b9", label="engine-derived (this game)", zorder=3)
+    ax.set_yticks(y)
+    ax.set_yticklabels(labs, fontsize=10)
+    ax.axvline(0, color="0.6", lw=0.8)
+    A._style(ax, "Index plays: textbook thresholds vs engine-derived (6 decks, H17)",
+             "Hi-Lo true count index (deviate at/above; hit plays deviate below)", None)
+    ax.legend(fontsize=10, loc="lower right")
+    nums = {lab: {"textbook": tb, "engine": round(float(idx), 2)}
+            for lab, _k, _c, tb, idx, _b, _n in rows}
+    nums["n_samples"] = n
+    return [("engine_indices", fig)], nums
+
+
 def exp_deviation_value(trials, rounds):
     """What are the index plays actually worth, live? Three Hi-Lo counters with
     IDENTICAL bet spreads sit at the same table on the same shoes: COUNT0 (no
     deviations), COUNT (textbook Illustrious 18), COUNTX (the same 18 cells with
-    engine-derived thresholds for this exact game). The paired difference vs
-    COUNT0 is the realized value of the deviations; COUNTX minus COUNT is what
-    re-deriving the thresholds buys."""
+    engine-derived thresholds for this exact game). The figure plots each one's
+    absolute edge over the house; the manifest also records the paired difference
+    vs COUNT0 (value of the deviations) and COUNTX minus COUNT (what re-deriving
+    the thresholds buys -- inside the noise)."""
     import random
     from blackjack import Blackjack
 
     decks = (1, 6)
-    bars = {"COUNT": [], "COUNTX": []}
-    cis = {"COUNT": [], "COUNTX": []}
+    lev = {"COUNT0": [], "COUNT": [], "COUNTX": []}     # absolute edge per deck
+    levci = {"COUNT0": [], "COUNT": [], "COUNTX": []}
     nums = {}
     for D in decks:
-        diffs = {"COUNT": [], "COUNTX": []}
+        diffs = {"COUNT": [], "COUNTX": [], "XvsT": []}
+        abso = {"COUNT0": [], "COUNT": [], "COUNTX": []}
         for t in range(trials):
             random.seed(9000 + t)
             cfg = Config(experiment="game", strategies=("COUNT0", "COUNT", "COUNTX"),
@@ -506,29 +796,39 @@ def exp_deviation_value(trials, rounds):
             e = {g.strategy: 100.0 * g.getEdge() for g in bj.guests}
             diffs["COUNT"].append(e["COUNT"] - e["COUNT0"])
             diffs["COUNTX"].append(e["COUNTX"] - e["COUNT0"])
+            diffs["XvsT"].append(e["COUNTX"] - e["COUNT"])
+            for s in ("COUNT0", "COUNT", "COUNTX"):
+                abso[s].append(e[s])
         nums[str(D)] = {}
-        for s in ("COUNT", "COUNTX"):
+        for s in ("COUNT", "COUNTX"):           # value of the deviations vs no deviations
             m, ci = mean_ci(diffs[s])
-            bars[s].append(m)
-            cis[s].append(ci)
             nums[str(D)][s + "_minus_COUNT0"] = _stat(m, ci)
-        print("    decks=%d  textbook %+.3f+/-%.3f  engine %+.3f+/-%.3f"
-              % (D, bars["COUNT"][-1], cis["COUNT"][-1],
-                 bars["COUNTX"][-1], cis["COUNTX"][-1]), flush=True)
+        for s in ("COUNT0", "COUNT", "COUNTX"):  # the absolute edges (plotted)
+            m, ci = mean_ci(abso[s])
+            lev[s].append(m)
+            levci[s].append(ci)
+            nums[str(D)][s + "_edge"] = _stat(m, ci)
+        mx, cix = mean_ci(diffs["XvsT"])         # direct engine-vs-textbook gap, paired
+        nums[str(D)]["COUNTX_minus_COUNT"] = _stat(mx, cix)
+        print("    decks=%d  COUNT0 %+.3f  COUNT %+.3f  COUNTX %+.3f  (engine-textbook %+.3f+/-%.3f)"
+              % (D, lev["COUNT0"][-1], lev["COUNT"][-1], lev["COUNTX"][-1], mx, cix), flush=True)
 
+    # The absolute edges: no deviations / textbook I18 / engine-derived indices.
+    x = np.arange(len(decks))
     fig = A._new_figure(figsize=(8.0, 5.2))
     ax = fig.add_subplot(111)
     ax.axhline(0, color="0.5", lw=0.8)
-    x = np.arange(len(decks))
-    w = 0.34
-    ax.bar(x - w / 2, bars["COUNT"], w, yerr=cis["COUNT"], capsize=5,
-           color="#2980b9", ecolor="0.25", label="textbook Illustrious 18  (COUNT)")
-    ax.bar(x + w / 2, bars["COUNTX"], w, yerr=cis["COUNTX"], capsize=5,
-           color="#1a9850", ecolor="0.25", label="engine-derived indices  (COUNTX)")
+    w = 0.26
+    order = [("COUNT0", "no deviations  (COUNT0)", "#7f8c8d"),
+             ("COUNT", "textbook I18  (COUNT)", "#2980b9"),
+             ("COUNTX", "engine indices  (COUNTX)", "#1a9850")]
+    for k, (s, label, color) in enumerate(order):
+        ax.bar(x + (k - 1) * w, lev[s], w, yerr=levci[s], capsize=4,
+               color=color, ecolor="0.3", label=label)
     ax.set_xticks(x)
     ax.set_xticklabels(["%d deck%s" % (D, "" if D == 1 else "s") for D in decks], fontsize=11)
-    A._style(ax, "What index plays are worth: edge gained over the same counter with no deviations",
-             None, "edge vs COUNT0 (% per hand, paired shoes)")
+    A._style(ax, "Counter edge with the same 1-12 spread: deviations add a little, not a lot",
+             None, "edge over the house (% per hand)")
     ax.legend(fontsize=10)
     return [("deviation_value", fig)], nums
 
@@ -729,7 +1029,12 @@ FIGURES = {
     "ceiling": (exp_ceiling, "Playing ceiling: perfect play vs Hi-Lo deviations"),
     "penetration": (exp_penetration, "Counter edge rises with penetration"),
     "kills_counting": (exp_kills_counting, "6:5 / CSM / shallow pen neutralize counting"),
+    "tc_distribution": (exp_tc_distribution, "True-count distribution by deck count (+CSM)"),
+    "profit_by_count": (exp_profit_by_count, "Profit share by true-count bin (where the money lives)"),
+    "wonging": (exp_wonging, "Back-counting: sit out the bad counts"),
+    "practical_player": (exp_practical_player, "Capstone: the full practical stack vs the casino"),
     "counting_systems": (exp_counting_systems, "Counting systems: BC vs PE trade-off"),
+    "engine_indices": (exp_engine_indices, "Index thresholds: textbook vs engine-derived"),
     "deviation_value": (exp_deviation_value, "Index plays: textbook vs engine-derived, value over no deviations"),
     "edge_crossover": (exp_edge_crossover, "Best of both worlds: ORACLE bets + CEILING play"),
     "dummy_players": (exp_dummy_players, "Same edge, fewer hands/hour"),

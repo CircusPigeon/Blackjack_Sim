@@ -15,7 +15,7 @@ DEFAULT_RULES = {
 }
 
 COUNTERS = ("COUNT", "TRACK", "ORACLE", "HIOPT2", "ZEN", "OMEGA2",
-            "COUNT0", "COUNTX")   # advantage strategies heat/bankroll apply to
+            "COUNT0", "COUNTX", "WONG")   # advantage strategies heat/bankroll apply to
 LEVEL2 = ("HIOPT2", "ZEN", "OMEGA2")      # level-2 counts: bet and play on their own count
 
 
@@ -84,6 +84,7 @@ class Blackjack:
         guest.maxUnits = self.config.spread_max
         guest.rampStart = float(self.config.ramp_start)
         guest.slope = float(self.config.spread_slope)
+        guest.wongBelow = float(self.config.wong_below)
 
     def log(self, msg):
         if (self.verbose):
@@ -131,6 +132,15 @@ class Blackjack:
             else:
                 signal = tc
             player.calculateBet(signal)
+            if (player.getBet() == 0):
+                # Wonged out: sits this round out (no cards, no wager) but keeps
+                # watching the count. act=False skips deal/play/settle below.
+                self.act[i] = False
+                player.bets = [0]
+                player.insuranceBet = 0
+                self.log("  " + player.getName() + " [" + player.strategy
+                         + "] wongs out (TC " + str(round(signal, 2)) + ")")
+                continue
             player.bets = [player.getBet()]
             player.insuranceBet = 0
             player.totalWagered += player.getBet()

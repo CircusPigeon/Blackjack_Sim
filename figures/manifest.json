@@ -95,27 +95,27 @@
     "description": "6:5 / CSM / shallow pen neutralize counting",
     "numbers": {
       "baseline 6D 3:2 75%": {
-        "mean": 0.0754,
-        "ci95": 0.2889
+        "mean": 0.2653,
+        "ci95": 0.1683
       },
       "6:5 payout": {
-        "mean": -1.2215,
-        "ci95": 0.2836
+        "mean": -1.0117,
+        "ci95": 0.1645
       },
       "continuous shuffler": {
-        "mean": -0.5855,
-        "ci95": 0.1651
+        "mean": -0.5713,
+        "ci95": 0.0989
       },
       "shallow pen 50%": {
-        "mean": 0.0919,
-        "ci95": 0.2672
+        "mean": -0.2193,
+        "ci95": 0.1326
       }
     },
     "files": [
       "figures\\kills_counting.svg",
       "figures\\kills_counting.png"
     ],
-    "trials": 30,
+    "trials": 90,
     "rounds": 40000,
     "smoke": false
   },
@@ -124,24 +124,24 @@
     "numbers": {
       "edge_by_players": {
         "0": {
-          "mean": 0.2888,
-          "ci95": 0.2161
+          "mean": 0.2823,
+          "ci95": 0.1603
         },
         "1": {
-          "mean": 0.4517,
-          "ci95": 0.2049
+          "mean": 0.3557,
+          "ci95": 0.1579
         },
         "2": {
-          "mean": 0.5169,
-          "ci95": 0.2398
+          "mean": 0.4643,
+          "ci95": 0.152
         },
         "4": {
-          "mean": 0.3062,
-          "ci95": 0.2422
+          "mean": 0.3854,
+          "ci95": 0.1541
         },
         "6": {
-          "mean": 0.5067,
-          "ci95": 0.197
+          "mean": 0.5472,
+          "ci95": 0.1601
         }
       },
       "hands_per_hour": {
@@ -156,7 +156,7 @@
       "figures\\dummy_players.svg",
       "figures\\dummy_players.png"
     ],
-    "trials": 75,
+    "trials": 150,
     "rounds": 24000,
     "smoke": false
   },
@@ -164,31 +164,31 @@
     "description": "Tracking only beats a sloppy, uncut shoe",
     "numbers": {
       "random (control)": {
-        "mean": -0.0007,
-        "ci95": 0.1991
+        "mean": 0.0682,
+        "ci95": 0.1455
       },
       "CSM (continuous)": {
-        "mean": 0.1621,
-        "ci95": 0.192
+        "mean": 0.1704,
+        "ci95": 0.1407
       },
       "casino 3 riffle + cut": {
-        "mean": 0.6467,
-        "ci95": 0.2659
+        "mean": 0.5889,
+        "ci95": 0.1764
       },
       "casino 3 riffle, no cut": {
-        "mean": 0.8024,
-        "ci95": 0.3058
+        "mean": 0.8701,
+        "ci95": 0.196
       },
       "casino 2 riffle, no cut": {
-        "mean": 1.5153,
-        "ci95": 0.3317
+        "mean": 1.4948,
+        "ci95": 0.213
       }
     },
     "files": [
       "figures\\shuffle_tracking.svg",
       "figures\\shuffle_tracking.png"
     ],
-    "trials": 60,
+    "trials": 120,
     "rounds": 20000,
     "smoke": false
   },
@@ -343,22 +343,54 @@
     "numbers": {
       "1": {
         "COUNT_minus_COUNT0": {
-          "mean": 0.9561,
-          "ci95": 0.3447
+          "mean": 0.9659,
+          "ci95": 0.1234
         },
         "COUNTX_minus_COUNT0": {
-          "mean": 0.9243,
-          "ci95": 0.3185
+          "mean": 1.0125,
+          "ci95": 0.1245
+        },
+        "COUNT0_edge": {
+          "mean": 1.8882,
+          "ci95": 0.1116
+        },
+        "COUNT_edge": {
+          "mean": 2.8541,
+          "ci95": 0.1155
+        },
+        "COUNTX_edge": {
+          "mean": 2.9007,
+          "ci95": 0.1212
+        },
+        "COUNTX_minus_COUNT": {
+          "mean": 0.0466,
+          "ci95": 0.1228
         }
       },
       "6": {
         "COUNT_minus_COUNT0": {
-          "mean": 0.2836,
-          "ci95": 0.3564
+          "mean": 0.3793,
+          "ci95": 0.1298
         },
         "COUNTX_minus_COUNT0": {
-          "mean": 0.4523,
-          "ci95": 0.3122
+          "mean": 0.3376,
+          "ci95": 0.1219
+        },
+        "COUNT0_edge": {
+          "mean": 0.095,
+          "ci95": 0.1084
+        },
+        "COUNT_edge": {
+          "mean": 0.4743,
+          "ci95": 0.1074
+        },
+        "COUNTX_edge": {
+          "mean": 0.4326,
+          "ci95": 0.1126
+        },
+        "COUNTX_minus_COUNT": {
+          "mean": -0.0417,
+          "ci95": 0.1163
         }
       }
     },
@@ -366,8 +398,172 @@
       "figures\\deviation_value.svg",
       "figures\\deviation_value.png"
     ],
-    "trials": 18,
-    "rounds": 60000,
+    "trials": 180,
+    "rounds": 40000,
+    "smoke": false
+  },
+  "tc_distribution": {
+    "description": "True-count distribution by deck count (+CSM)",
+    "numbers": {
+      "1 deck": {
+        "P(tc>=+1)": 0.3376,
+        "P(tc>=+3)": 0.2028
+      },
+      "2 decks": {
+        "P(tc>=+1)": 0.3262,
+        "P(tc>=+3)": 0.161
+      },
+      "6 decks": {
+        "P(tc>=+1)": 0.2539,
+        "P(tc>=+3)": 0.0778
+      },
+      "8 decks": {
+        "P(tc>=+1)": 0.2315,
+        "P(tc>=+3)": 0.059
+      },
+      "6 decks, CSM": {
+        "P(tc>=+1)": 0.0,
+        "P(tc>=+3)": 0.0
+      }
+    },
+    "files": [
+      "figures\\tc_distribution.svg",
+      "figures\\tc_distribution.png"
+    ],
+    "trials": 30,
+    "rounds": 40000,
+    "smoke": false
+  },
+  "profit_by_count": {
+    "description": "Profit share by true-count bin (where the money lives)",
+    "numbers": {
+      "share_from_tc_ge_3": 166.8,
+      "hands_at_tc_ge_3_pct": 7.7,
+      "share_from_tc_lt_1": -90.9,
+      "per_bin": {
+        "-5": {
+          "share_pct": -21.95,
+          "freq_pct": 5.39
+        },
+        "-4": {
+          "share_pct": -11.08,
+          "freq_pct": 4.13
+        },
+        "-3": {
+          "share_pct": -12.1,
+          "freq_pct": 6.97
+        },
+        "-2": {
+          "share_pct": -15.07,
+          "freq_pct": 12.59
+        },
+        "-1": {
+          "share_pct": -21.13,
+          "freq_pct": 19.11
+        },
+        "0": {
+          "share_pct": -9.61,
+          "freq_pct": 26.44
+        },
+        "1": {
+          "share_pct": 4.93,
+          "freq_pct": 11.44
+        },
+        "2": {
+          "share_pct": 19.25,
+          "freq_pct": 6.2
+        },
+        "3": {
+          "share_pct": 31.15,
+          "freq_pct": 3.45
+        },
+        "4": {
+          "share_pct": 38.03,
+          "freq_pct": 1.95
+        },
+        "5": {
+          "share_pct": 31.42,
+          "freq_pct": 1.08
+        },
+        "6": {
+          "share_pct": 66.15,
+          "freq_pct": 1.25
+        }
+      }
+    },
+    "files": [
+      "figures\\profit_by_count.svg",
+      "figures\\profit_by_count.png"
+    ],
+    "trials": 90,
+    "rounds": 40000,
+    "smoke": false
+  },
+  "wonging": {
+    "description": "Back-counting: sit out the bad counts",
+    "numbers": {
+      "always play": {
+        "profit_per_100_rounds": {
+          "mean": 0.7355,
+          "ci95": 0.4492
+        },
+        "hands_played_pct": 100.0
+      },
+      "wong out below -1": {
+        "profit_per_100_rounds": {
+          "mean": 1.3474,
+          "ci95": 0.3786
+        },
+        "hands_played_pct": 67.5
+      },
+      "below 0": {
+        "profit_per_100_rounds": {
+          "mean": 1.6818,
+          "ci95": 0.329
+        },
+        "hands_played_pct": 48.5
+      },
+      "below +1": {
+        "profit_per_100_rounds": {
+          "mean": 1.5119,
+          "ci95": 0.3405
+        },
+        "hands_played_pct": 22.1
+      },
+      "below +2": {
+        "profit_per_100_rounds": {
+          "mean": 1.2714,
+          "ci95": 0.3298
+        },
+        "hands_played_pct": 11.9
+      }
+    },
+    "files": [
+      "figures\\wonging.svg",
+      "figures\\wonging.png"
+    ],
+    "trials": 60,
+    "rounds": 40000,
+    "smoke": false
+  },
+  "practical_player": {
+    "description": "Capstone: the full practical stack vs the casino",
+    "numbers": {
+      "p_ruined": 0.333,
+      "p_barred": 0.2,
+      "p_survived": 0.467,
+      "median_final_bankroll": 298.0,
+      "median_hands_survived": 1757,
+      "careers": 300,
+      "session_hands": 3000,
+      "bankroll_units": 300.0
+    },
+    "files": [
+      "figures\\practical_player.svg",
+      "figures\\practical_player.png"
+    ],
+    "trials": 300,
+    "rounds": 40000,
     "smoke": false
   }
 }

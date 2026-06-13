@@ -10,7 +10,8 @@ the deviation becomes correct in this rule set.
 
 Run:  python precompute_indices.py
 Then paste the printed ENGINE_INDICES dict into strategy.py (COUNTX plays it).
-Also writes figures/engine_indices.{png,svg} comparing textbook vs engine values.
+The textbook-vs-engine comparison figure is a curated spec:
+  python make_figures.py --only engine_indices
 """
 
 import numpy as np
@@ -214,31 +215,8 @@ def main(numPacks=6, n_samples=40000):
     print('    "insurance": %.2f,' % bykind["insurance"])
     print("}")
 
-    # Dumbbell figure: textbook vs engine index per play.
-    import matplotlib
-    matplotlib.use("Agg")
-    import analysis as A
-    from matplotlib.backends.backend_agg import FigureCanvasAgg
-    labs = [r[0] for r in rows]
-    tbs = [r[3] for r in rows]
-    idxs = [r[4] for r in rows]
-    y = np.arange(len(rows))[::-1]
-    fig = A._new_figure(figsize=(8.2, 7.2))
-    ax = fig.add_subplot(111)
-    for yi, t, e in zip(y, tbs, idxs):
-        ax.plot([t, e], [yi, yi], color="0.75", lw=1.4, zorder=1)
-    ax.scatter(tbs, y, s=55, color="#7f8c8d", label="textbook Illustrious 18", zorder=2)
-    ax.scatter(idxs, y, s=55, color="#2980b9", label="engine-derived (this game)", zorder=3)
-    ax.set_yticks(y)
-    ax.set_yticklabels(labs, fontsize=10)
-    ax.axvline(0, color="0.6", lw=0.8)
-    A._style(ax, "Index plays: textbook thresholds vs engine-derived (6 decks, H17)",
-             "Hi-Lo true count index (deviate at/above; hit plays deviate below)", None)
-    ax.legend(fontsize=10, loc="lower right")
-    FigureCanvasAgg(fig)
-    fig.savefig("figures/engine_indices.png", dpi=160, bbox_inches="tight")
-    fig.savefig("figures/engine_indices.svg", bbox_inches="tight")
-    print("\nwrote figures/engine_indices.{png,svg}")
+    # The comparison figure lives in the curated set:
+    #   python make_figures.py --only engine_indices
     return rows
 
 
